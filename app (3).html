@@ -37,11 +37,24 @@
 
     console.log('✅ Firebase initialized successfully');
 
-    // Make functions globally available
-    window.firebaseAuth = auth;
-    window.firebaseDatabase = database;
-    window.firebaseReady = true;
+    // Expose Firebase to global scope
+    window.firebaseReady = {
+      auth,
+      database,
+      createUserWithEmailAndPassword,
+      signInWithEmailAndPassword,
+      signOut,
+      onAuthStateChanged,
+      ref,
+      set,
+      get,
+      update
+    };
 
+    console.log('✅ Firebase exposed to window');
+  </script>
+
+  <script>
     // ============ GLOBAL STATE ============
     window.state = {
       currentUser: null,
@@ -132,15 +145,16 @@
       }
       
       try {
+        const fb = window.firebaseReady;
         console.log('Creating user account...');
-        const userCredential = await createUserWithEmailAndPassword(auth, email, password);
+        const userCredential = await fb.createUserWithEmailAndPassword(fb.auth, email, password);
         const user = userCredential.user;
         
         console.log('✅ User created:', user.uid);
         
         // Initialize user data in database
-        const userRef = ref(database, 'users/' + user.uid);
-        await set(userRef, {
+        const userRef = fb.ref(fb.database, 'users/' + user.uid);
+        await fb.set(userRef, {
           email: user.email,
           createdAt: new Date().toISOString(),
           tasks: [],
@@ -189,8 +203,9 @@
       }
       
       try {
+        const fb = window.firebaseReady;
         console.log('Signing in...');
-        await signInWithEmailAndPassword(auth, email, password);
+        await fb.signInWithEmailAndPassword(fb.auth, email, password);
         console.log('✅ Login successful');
         
       } catch (error) {
@@ -219,7 +234,8 @@
 
     window.handleLogout = async function() {
       try {
-        await signOut(auth);
+        const fb = window.firebaseReady;
+        await fb.signOut(fb.auth);
         console.log('✅ Logout successful');
       } catch (error) {
         console.error('❌ Logout error:', error);
@@ -230,8 +246,9 @@
     // ============ DATA MANAGEMENT ============
     window.loadUserData = async function(userId) {
       try {
-        const userRef = ref(database, 'users/' + userId);
-        const snapshot = await get(userRef);
+        const fb = window.firebaseReady;
+        const userRef = fb.ref(fb.database, 'users/' + userId);
+        const snapshot = await fb.get(userRef);
         
         if (snapshot.exists()) {
           const data = snapshot.val();
@@ -257,8 +274,9 @@
       if (!window.state.currentUser) return;
       
       try {
-        const userRef = ref(database, 'users/' + window.state.currentUser.uid);
-        await update(userRef, {
+        const fb = window.firebaseReady;
+        const userRef = fb.ref(fb.database, 'users/' + window.state.currentUser.uid);
+        await fb.update(userRef, {
           tasks: window.state.tasks,
           exams: window.state.exams,
           goals: window.state.goals,
@@ -276,44 +294,52 @@
     }
 
     // ============ AUTH STATE OBSERVER ============
-    onAuthStateChanged(auth, async (user) => {
-      if (user) {
-        console.log('✅ User signed in:', user.email);
-        window.state.currentUser = user;
+    // Wait for Firebase to be ready, then set up auth observer
+    const initAuth = setInterval(() => {
+      if (window.firebaseReady) {
+        clearInterval(initAuth);
+        const fb = window.firebaseReady;
         
-        // Load user data
-        await window.loadUserData(user.uid);
-        
-        // Show app, hide auth
-        document.getElementById('authScreen').classList.add('hidden');
-        document.getElementById('appContainer').classList.remove('hidden');
-        
-        // Wait for navigate function to be available, then navigate to dashboard
-        const waitForNavigate = setInterval(() => {
-          if (window.navigate) {
-            clearInterval(waitForNavigate);
-            window.navigate('dashboard');
-            lucide.createIcons();
+        fb.onAuthStateChanged(fb.auth, async (user) => {
+          if (user) {
+            console.log('✅ User signed in:', user.email);
+            window.state.currentUser = user;
+            
+            // Load user data
+            await window.loadUserData(user.uid);
+            
+            // Show app, hide auth
+            document.getElementById('authScreen').classList.add('hidden');
+            document.getElementById('appContainer').classList.remove('hidden');
+            
+            // Wait for navigate function to be available, then navigate to dashboard
+            const waitForNavigate = setInterval(() => {
+              if (window.navigate) {
+                clearInterval(waitForNavigate);
+                window.navigate('dashboard');
+                lucide.createIcons();
+              }
+            }, 50);
+            
+            // Timeout after 5 seconds
+            setTimeout(() => {
+              clearInterval(waitForNavigate);
+              if (!window.navigate) {
+                console.error('❌ Navigate function not available');
+              }
+            }, 5000);
+            
+          } else {
+            console.log('User signed out');
+            window.state.currentUser = null;
+            
+            // Show auth, hide app
+            document.getElementById('authScreen').classList.remove('hidden');
+            document.getElementById('appContainer').classList.add('hidden');
           }
-        }, 50);
-        
-        // Timeout after 5 seconds
-        setTimeout(() => {
-          clearInterval(waitForNavigate);
-          if (!window.navigate) {
-            console.error('❌ Navigate function not available');
-          }
-        }, 5000);
-        
-      } else {
-        console.log('User signed out');
-        window.state.currentUser = null;
-        
-        // Show auth, hide app
-        document.getElementById('authScreen').classList.remove('hidden');
-        document.getElementById('appContainer').classList.add('hidden');
+        });
       }
-    });
+    }, 50);
 
     // ============ STREAK MANAGEMENT ============
     window.updateStreak = function() {
@@ -1108,4 +1134,4 @@
 
   <script src="app.js"></script>
 </body>
-</html>
+</html>\
