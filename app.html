@@ -523,9 +523,11 @@
     
     .grid-bg {
       background-image:
+        radial-gradient(1200px 800px at 80% 10%, rgba(99,102,241,0.18), transparent 60%),
+        radial-gradient(900px 700px at 10% 30%, rgba(168,85,247,0.15), transparent 60%),
         linear-gradient(rgba(255,255,255,0.05) 1px, transparent 1px),
         linear-gradient(90deg, rgba(255,255,255,0.05) 1px, transparent 1px);
-      background-size: 56px 56px, 56px 56px;
+      background-size: auto, auto, 56px 56px, 56px 56px;
     }
     
     .card {
@@ -538,7 +540,6 @@
     }
     
     .card:hover {
-      transform: translateY(-2px);
       box-shadow: 0 25px 90px rgba(0,0,0,0.65);
       border-color: rgba(255,255,255,0.18);
     }
