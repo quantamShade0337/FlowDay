@@ -1,0 +1,93 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Test Login</title>
+</head>
+<body>
+  <h1>Login Test</h1>
+  
+  <input type="email" id="loginEmail" placeholder="Email">
+  <input type="password" id="loginPassword" placeholder="Password">
+  <button id="loginBtn">Login</button>
+  
+  <div id="output"></div>
+
+  <!-- Firebase SDK v9 -->
+  <script type="module">
+    import { initializeApp } from 'https://www.gstatic.com/firebasejs/10.7.1/firebase-app.js';
+    import { getAuth, signInWithEmailAndPassword } from 'https://www.gstatic.com/firebasejs/10.7.1/firebase-auth.js';
+
+    const firebaseConfig = {
+      apiKey: "AIzaSyCmmnXzel_rrxE7xM2mm0htu4Ehh9Eo6Rs",
+      authDomain: "studypilot-92014.firebaseapp.com",
+      databaseURL: "https://studypilot-92014-default-rtdb.asia-southeast1.firebasedatabase.app",
+      projectId: "studypilot-92014",
+      storageBucket: "studypilot-92014.firebasestorage.app",
+      messagingSenderId: "267953191976",
+      appId: "1:267953191976:web:0c625dc16e7fa8b822c91d",
+      measurementId: "G-JF2MMTJW56"
+    };
+
+    const app = initializeApp(firebaseConfig);
+    const auth = getAuth(app);
+
+    console.log('✅ Firebase initialized');
+
+    // Expose to window
+    window.firebaseAuth = auth;
+    window.firebaseSignIn = signInWithEmailAndPassword;
+    
+    console.log('Auth exposed:', typeof window.firebaseAuth);
+    console.log('SignIn exposed:', typeof window.firebaseSignIn);
+  </script>
+
+  <script>
+    console.log('Regular script starting...');
+    
+    // Wait for Firebase to load
+    setTimeout(() => {
+      console.log('Checking Firebase availability...');
+      console.log('firebaseAuth:', typeof window.firebaseAuth);
+      console.log('firebaseSignIn:', typeof window.firebaseSignIn);
+      
+      // Define login function
+      window.handleLogin = async function() {
+        const email = document.getElementById('loginEmail').value.trim();
+        const password = document.getElementById('loginPassword').value;
+        
+        console.log('Login attempt:', email);
+        document.getElementById('output').innerHTML = 'Logging in...';
+        
+        if (!email || !password) {
+          document.getElementById('output').innerHTML = 'Please fill in both fields';
+          return;
+        }
+        
+        try {
+          console.log('Attempting sign in...');
+          await window.firebaseSignIn(window.firebaseAuth, email, password);
+          console.log('✅ Login successful');
+          document.getElementById('output').innerHTML = '✅ Login successful!';
+        } catch (error) {
+          console.error('❌ Login error:', error);
+          document.getElementById('output').innerHTML = '❌ Error: ' + error.message;
+        }
+      };
+      
+      console.log('handleLogin defined:', typeof window.handleLogin);
+      
+      // Attach event listener
+      const btn = document.getElementById('loginBtn');
+      btn.addEventListener('click', () => {
+        console.log('Button clicked!');
+        window.handleLogin();
+      });
+      
+      console.log('✅ Event listener attached');
+      
+    }, 500);
+  </script>
+</body>
+</html>
