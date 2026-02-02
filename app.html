@@ -20,7 +20,7 @@
   <script type="module">
     import { initializeApp } from 'https://www.gstatic.com/firebasejs/10.7.1/firebase-app.js';
     import { getAuth, createUserWithEmailAndPassword, signInWithEmailAndPassword, signOut, onAuthStateChanged } from 'https://www.gstatic.com/firebasejs/10.7.1/firebase-auth.js';
-    import { getDatabase, ref, set, get, update } from 'https://www.gstatic.com/firebasejs/10.7.1/firebase-database.js';
+    import { getDatabase, ref, set, get, update, onValue, remove } from 'https://www.gstatic.com/firebasejs/10.7.1/firebase-database.js';
 
     // ============ FIREBASE CONFIGURATION ============
     const firebaseConfig = {
@@ -52,7 +52,9 @@
       ref,
       set,
       get,
-      update
+      update,
+      onValue,
+      remove
     };
 
     console.log('✅ Firebase exposed to window');
@@ -76,6 +78,12 @@
         seconds: 0,
         isRunning: false,
         interval: null
+      },
+      studyGroup: {
+        code: null,
+        isHost: false,
+        members: [],
+        listener: null
       }
     };
 
@@ -951,6 +959,11 @@
       <div class="sidebar-item" data-page="notes" onclick="navigate('notes')">
         <i data-lucide="book-open"></i>
         <span>Quick Notes</span>
+      </div>
+      
+      <div class="sidebar-item" data-page="studygroup" onclick="navigate('studygroup')">
+        <i data-lucide="users"></i>
+        <span>Study Groups</span>
       </div>
       
       <div style="margin-top: auto; padding-top: 24px;">
