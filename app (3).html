@@ -360,26 +360,35 @@
       }
     }
 
+    console.log('🚀 Firebase app ready');
+    
     // ============ SETUP EVENT LISTENERS ============
-    document.addEventListener('DOMContentLoaded', () => {
+    // Wait for DOM to be ready
+    setTimeout(() => {
       console.log('🎯 Setting up event listeners...');
+      console.log('handleLogin available?', typeof window.handleLogin);
+      console.log('handleSignup available?', typeof window.handleSignup);
       
       // Login form button
       const loginBtn = document.querySelector('#loginForm button.btn-primary');
+      console.log('Login button found?', !!loginBtn);
       if (loginBtn) {
         loginBtn.addEventListener('click', (e) => {
           e.preventDefault();
-          handleLogin();
+          console.log('Login button clicked!');
+          window.handleLogin();
         });
         console.log('✅ Login button listener attached');
       }
 
       // Signup form button
       const signupBtn = document.querySelector('#signupForm button.btn-primary');
+      console.log('Signup button found?', !!signupBtn);
       if (signupBtn) {
         signupBtn.addEventListener('click', (e) => {
           e.preventDefault();
-          handleSignup();
+          console.log('Signup button clicked!');
+          window.handleSignup();
         });
         console.log('✅ Signup button listener attached');
       }
@@ -391,7 +400,8 @@
         loginPassword.addEventListener('keypress', (e) => {
           if (e.key === 'Enter') {
             e.preventDefault();
-            handleLogin();
+            console.log('Enter pressed in password field');
+            window.handleLogin();
           }
         });
       }
@@ -399,7 +409,8 @@
         loginEmail.addEventListener('keypress', (e) => {
           if (e.key === 'Enter') {
             e.preventDefault();
-            handleLogin();
+            console.log('Enter pressed in email field');
+            window.handleLogin();
           }
         });
       }
@@ -410,7 +421,8 @@
         signupConfirm.addEventListener('keypress', (e) => {
           if (e.key === 'Enter') {
             e.preventDefault();
-            handleSignup();
+            console.log('Enter pressed in signup');
+            window.handleSignup();
           }
         });
       }
@@ -420,7 +432,8 @@
       if (showSignupBtn) {
         showSignupBtn.addEventListener('click', (e) => {
           e.preventDefault();
-          showSignup();
+          console.log('Show signup clicked');
+          window.showSignup();
         });
       }
 
@@ -428,14 +441,13 @@
       if (showLoginBtn) {
         showLoginBtn.addEventListener('click', (e) => {
           e.preventDefault();
-          showLogin();
+          console.log('Show login clicked');
+          window.showLogin();
         });
       }
       
       console.log('✅ All event listeners set up');
-    });
-
-    console.log('🚀 Firebase app ready');
+    }, 100);
   </script>
   
   <style>
