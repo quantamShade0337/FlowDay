@@ -42,75 +42,6 @@
     window.firebaseDatabase = database;
     window.firebaseReady = true;
 
-    // ============ SETUP EVENT LISTENERS ============
-    document.addEventListener('DOMContentLoaded', () => {
-      // Login form button
-      const loginBtn = document.querySelector('#loginForm button.btn-primary');
-      if (loginBtn) {
-        loginBtn.addEventListener('click', (e) => {
-          e.preventDefault();
-          handleLogin();
-        });
-      }
-
-      // Signup form button
-      const signupBtn = document.querySelector('#signupForm button.btn-primary');
-      if (signupBtn) {
-        signupBtn.addEventListener('click', (e) => {
-          e.preventDefault();
-          handleSignup();
-        });
-      }
-
-      // Enter key support for login
-      const loginPassword = document.getElementById('loginPassword');
-      const loginEmail = document.getElementById('loginEmail');
-      if (loginPassword) {
-        loginPassword.addEventListener('keypress', (e) => {
-          if (e.key === 'Enter') {
-            e.preventDefault();
-            handleLogin();
-          }
-        });
-      }
-      if (loginEmail) {
-        loginEmail.addEventListener('keypress', (e) => {
-          if (e.key === 'Enter') {
-            e.preventDefault();
-            handleLogin();
-          }
-        });
-      }
-
-      // Enter key support for signup
-      const signupConfirm = document.getElementById('signupPasswordConfirm');
-      if (signupConfirm) {
-        signupConfirm.addEventListener('keypress', (e) => {
-          if (e.key === 'Enter') {
-            e.preventDefault();
-            handleSignup();
-          }
-        });
-      }
-
-      // Show login/signup toggle buttons
-      const showSignupBtn = document.querySelector('#loginForm button.btn-secondary');
-      if (showSignupBtn) {
-        showSignupBtn.addEventListener('click', (e) => {
-          e.preventDefault();
-          showSignup();
-        });
-      }
-
-      const showLoginBtn = document.querySelector('#signupForm button.btn-secondary');
-      if (showLoginBtn) {
-        showLoginBtn.addEventListener('click', (e) => {
-          e.preventDefault();
-          showLogin();
-        });
-      }
-    });
-
     // ============ GLOBAL STATE ============
     window.state = {
       currentUser: null,
@@ -428,6 +359,81 @@
         window.saveState();
       }
     }
+
+    // ============ SETUP EVENT LISTENERS ============
+    document.addEventListener('DOMContentLoaded', () => {
+      console.log('🎯 Setting up event listeners...');
+      
+      // Login form button
+      const loginBtn = document.querySelector('#loginForm button.btn-primary');
+      if (loginBtn) {
+        loginBtn.addEventListener('click', (e) => {
+          e.preventDefault();
+          handleLogin();
+        });
+        console.log('✅ Login button listener attached');
+      }
+
+      // Signup form button
+      const signupBtn = document.querySelector('#signupForm button.btn-primary');
+      if (signupBtn) {
+        signupBtn.addEventListener('click', (e) => {
+          e.preventDefault();
+          handleSignup();
+        });
+        console.log('✅ Signup button listener attached');
+      }
+
+      // Enter key support for login
+      const loginPassword = document.getElementById('loginPassword');
+      const loginEmail = document.getElementById('loginEmail');
+      if (loginPassword) {
+        loginPassword.addEventListener('keypress', (e) => {
+          if (e.key === 'Enter') {
+            e.preventDefault();
+            handleLogin();
+          }
+        });
+      }
+      if (loginEmail) {
+        loginEmail.addEventListener('keypress', (e) => {
+          if (e.key === 'Enter') {
+            e.preventDefault();
+            handleLogin();
+          }
+        });
+      }
+
+      // Enter key support for signup
+      const signupConfirm = document.getElementById('signupPasswordConfirm');
+      if (signupConfirm) {
+        signupConfirm.addEventListener('keypress', (e) => {
+          if (e.key === 'Enter') {
+            e.preventDefault();
+            handleSignup();
+          }
+        });
+      }
+
+      // Show login/signup toggle buttons
+      const showSignupBtn = document.querySelector('#loginForm button.btn-secondary');
+      if (showSignupBtn) {
+        showSignupBtn.addEventListener('click', (e) => {
+          e.preventDefault();
+          showSignup();
+        });
+      }
+
+      const showLoginBtn = document.querySelector('#signupForm button.btn-secondary');
+      if (showLoginBtn) {
+        showLoginBtn.addEventListener('click', (e) => {
+          e.preventDefault();
+          showLogin();
+        });
+      }
+      
+      console.log('✅ All event listeners set up');
+    });
 
     console.log('🚀 Firebase app ready');
   </script>
