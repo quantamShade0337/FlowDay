@@ -1105,8 +1105,21 @@ function listenToGroup(code) {
     
     // Update UI if on study group page
     if (state.currentPage === 'studygroup') {
+      // Update header
+      const headerText = document.querySelector('h1 + p');
+      if (headerText && headerText.textContent.includes('Studying together')) {
+        const otherCount = state.studyGroup.members.length - 1;
+        headerText.textContent = `Studying together with ${otherCount} other${otherCount !== 1 ? 's' : ''}`;
+      }
+      
       const membersList = document.getElementById('membersList');
       if (membersList) {
+        // Update member count header
+        const membersHeader = membersList.previousElementSibling;
+        if (membersHeader && membersHeader.tagName === 'H4') {
+          membersHeader.textContent = `Members (${state.studyGroup.members.length})`;
+        }
+        
         membersList.innerHTML = state.studyGroup.members.map(member => `
           <div style="display: flex; align-items: center; gap: 12px; padding: 12px; background: rgba(255,255,255,0.04); border-radius: 10px; margin-bottom: 8px;">
             <div style="width: 36px; height: 36px; border-radius: 50%; background: linear-gradient(135deg, var(--brand-blue), var(--brand-purple)); display: flex; align-items: center; justify-content: center; font-weight: 700; font-size: 14px;">
