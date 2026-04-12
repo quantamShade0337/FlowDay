@@ -2345,8 +2345,8 @@ input[type="date"]::-webkit-calendar-picker-indicator:hover { opacity: 1; }
   position: fixed;
   bottom: 94px;
   right: 28px;
-  width: 390px;
-  height: min(620px, calc(100vh - 110px));
+  width: min(460px, calc(100vw - 24px));
+  height: min(680px, calc(100vh - 96px));
   background: var(--bg);
   border: 1px solid var(--border-mid);
   border-radius: 20px;
@@ -2363,8 +2363,8 @@ input[type="date"]::-webkit-calendar-picker-indicator:hover { opacity: 1; }
     0 4px 24px rgba(0,0,0,.14),
     0 1px 4px rgba(0,0,0,.08);
   overflow: hidden;
-  min-width: 320px;
-  min-height: 400px;
+  min-width: 360px;
+  min-height: 440px;
 }
 
 #ai-panel.open { transform: scale(1) translateY(0); opacity: 1; pointer-events: all; }

@@ -24,6 +24,7 @@
   let generator = null;
   let embedder = null;
   let abortFlag = false;
+  let modelLoadPromise = null;
 
   const health = {
     state: 'idle',
@@ -439,8 +440,17 @@
 
   async function embedText(text) {
     if (!embedder) return null;
-    const output = await embedder(String(text || ''), { pooling: 'mean', normalize: true });
-    return Array.from(output?.data || []);
+    try {
+      const output = await embedder(String(text || ''), { pooling: 'mean', normalize: true });
+      return Array.from(output?.data || []);
+    } catch (error) {
+      embedder = null;
+      updateHealth({
+        lastError: error?.message || 'Embedding model failed to run',
+        reducedModeReason: 'embedding-runtime-failed',
+      });
+      return null;
+    }
   }
 
   async function ensureChunkEmbeddings(chunks) {
@@ -490,14 +500,16 @@
     const prefiltered = scored.slice(0, limits?.lexicalPrefilter || DEFAULT_LIMITS.lexicalPrefilter).map(item => item.chunk);
     if (embedder && prefiltered.length) {
       const queryEmbedding = await embedText(message);
-      await ensureChunkEmbeddings(prefiltered);
-      return prefiltered
-        .map(chunk => ({
-          ...chunk,
-          score: 0.62 * cosineSimilarity(queryEmbedding, chunk.embedding || []) + 0.38 * lexicalScore(queryTokens, chunk),
-        }))
-        .sort((a, b) => b.score - a.score)
-        .slice(0, limits?.retrievalTopK || DEFAULT_LIMITS.retrievalTopK);
+      if (queryEmbedding?.length) {
+        await ensureChunkEmbeddings(prefiltered);
+        return prefiltered
+          .map(chunk => ({
+            ...chunk,
+            score: 0.62 * cosineSimilarity(queryEmbedding, chunk.embedding || []) + 0.38 * lexicalScore(queryTokens, chunk),
+          }))
+          .sort((a, b) => b.score - a.score)
+          .slice(0, limits?.retrievalTopK || DEFAULT_LIMITS.retrievalTopK);
+      }
     }
 
     return scored
@@ -1010,108 +1022,95 @@
   async function init() {
     await ensureRuntimeReady();
     const profile = getDeviceProfile();
+    const cachedModelMetadata = await getMetaValue('model-metadata', null);
+    const cachedModelAvailable = !!(
+      cachedModelMetadata &&
+      cachedModelMetadata.backend === 'transformers' &&
+      !cachedModelMetadata.error
+    );
     updateHealth({
       state: 'idle',
       mode: health.modelLoaded ? health.mode : 'reduced',
       deviceMemory: profile.memory,
       hardwareConcurrency: profile.cores,
       capabilities: profile.supportsWebGPU ? ['webgpu', 'indexeddb', 'retrieval', 'actions'] : ['indexeddb', 'retrieval', 'actions'],
+      reducedModeReason: cachedModelAvailable ? 'cached-model-available' : health.reducedModeReason,
     });
     return { ok: true };
   }
 
   async function loadModel() {
     if (health.modelLoaded) return clone(health);
-    updateHealth({ state: 'loading', lastError: '' });
-    try {
-      transformersModule = transformersModule || await import('https://cdn.jsdelivr.net/npm/@xenova/transformers@2.17.2');
-      const env = transformersModule.env || {};
-      env.allowLocalModels = false;
-      env.useBrowserCache = true;
-      embedder = await transformersModule.pipeline('feature-extraction', MODEL_CONFIG.embedder);
+    if (modelLoadPromise) return modelLoadPromise;
+    modelLoadPromise = (async () => {
+      updateHealth({ state: 'loading', lastError: '' });
+      try {
+        transformersModule = transformersModule || await import('https://cdn.jsdelivr.net/npm/@xenova/transformers@2.17.2');
+        const env = transformersModule.env || {};
+        env.allowLocalModels = false;
+        env.useBrowserCache = true;
 
-      const profile = getDeviceProfile();
-      const modelMetadata = {
-        runtimeVersion: MODEL_CONFIG.runtimeVersion,
-        embedder: MODEL_CONFIG.embedder,
-        loadedAt: nowIso(),
-      };
-
-      if (profile.supportsWebGPU && profile.memory >= 4) {
         try {
-          webllmModule = webllmModule || await import(MODEL_CONFIG.webllmImportUrl);
-          const chosen = chooseWebLLMModel(webllmModule?.prebuiltAppConfig?.model_list || []);
-          if (chosen) {
-            webllmEngine = await webllmModule.CreateMLCEngine(chosen.model_id, {
-              initProgressCallback: progress => {
-                updateHealth({ state: 'loading', lastError: '', reducedModeReason: '', generatorModel: chosen.model_id });
-                void setMeta('model-progress', progress);
-              },
-            });
-            generator = null;
-            updateHealth({
-              state: 'ready',
-              mode: 'neural',
-              backend: 'webllm',
-              provider: 'webllm',
-              modelLoaded: true,
-              reducedModeReason: '',
-              generatorModel: chosen.model_id,
-            });
-            await setMeta('model-metadata', {
-              ...modelMetadata,
-              backend: 'webllm',
-              generatorModel: chosen.model_id,
-            });
-            return clone(health);
-          }
-        } catch (webllmError) {
+          embedder = await transformersModule.pipeline('feature-extraction', MODEL_CONFIG.embedder);
+        } catch (embedderError) {
+          embedder = null;
           updateHealth({
-            lastError: webllmError?.message || 'WebLLM failed to load',
-            reducedModeReason: 'webllm-load-failed',
+            lastError: embedderError?.message || 'Embedding model unavailable',
+            reducedModeReason: 'embedding-model-load-failed',
           });
         }
-      }
 
-      const transformerModel = selectTransformerGeneratorModel(profile);
-      generator = await transformersModule.pipeline('text2text-generation', transformerModel);
-      webllmEngine = null;
-      updateHealth({
-        state: 'ready',
-        mode: 'neural',
-        backend: 'transformers',
-        provider: 'transformers.js',
-        modelLoaded: true,
-        reducedModeReason: '',
-        generatorModel: transformerModel,
-      });
-      await setMeta('model-metadata', {
-        ...modelMetadata,
-        backend: 'transformers',
-        generatorModel: transformerModel,
-      });
-      return clone(health);
-    } catch (error) {
-      generator = null;
-      webllmEngine = null;
-      updateHealth({
-        state: 'reduced',
-        mode: 'reduced',
-        backend: 'reduced',
-        provider: 'browser',
-        modelLoaded: false,
-        reducedModeReason: health.reducedModeReason || 'browser-model-load-failed',
-        lastError: error?.message || health.lastError || 'Unable to load local browser model',
-      });
-      await setMeta('model-metadata', {
-        runtimeVersion: MODEL_CONFIG.runtimeVersion,
-        mode: 'reduced',
-        backend: 'reduced',
-        loadedAt: nowIso(),
-        error: health.lastError,
-      });
-      return clone(health);
-    }
+        const profile = getDeviceProfile();
+        const modelMetadata = {
+          runtimeVersion: MODEL_CONFIG.runtimeVersion,
+          embedder: embedder ? MODEL_CONFIG.embedder : null,
+          loadedAt: nowIso(),
+        };
+
+        const transformerModel = selectTransformerGeneratorModel(profile);
+        generator = await transformersModule.pipeline('text2text-generation', transformerModel);
+        webllmEngine = null;
+        updateHealth({
+          state: 'ready',
+          mode: 'neural',
+          backend: 'transformers',
+          provider: 'transformers.js',
+          modelLoaded: true,
+          reducedModeReason: '',
+          generatorModel: transformerModel,
+          lastError: embedder ? '' : health.lastError,
+        });
+        await setMeta('model-metadata', {
+          ...modelMetadata,
+          backend: 'transformers',
+          generatorModel: transformerModel,
+        });
+        return clone(health);
+      } catch (error) {
+        generator = null;
+        webllmEngine = null;
+        updateHealth({
+          state: 'reduced',
+          mode: 'reduced',
+          backend: 'reduced',
+          provider: 'browser',
+          modelLoaded: false,
+          reducedModeReason: health.reducedModeReason || 'browser-model-load-failed',
+          lastError: error?.message || health.lastError || 'Unable to load local browser model',
+        });
+        await setMeta('model-metadata', {
+          runtimeVersion: MODEL_CONFIG.runtimeVersion,
+          mode: 'reduced',
+          backend: 'reduced',
+          loadedAt: nowIso(),
+          error: health.lastError,
+        });
+        return clone(health);
+      } finally {
+        modelLoadPromise = null;
+      }
+    })();
+    return modelLoadPromise;
   }
 
   async function generate(input) {

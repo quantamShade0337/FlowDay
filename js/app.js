@@ -4788,6 +4788,15 @@ const AVATAR_ICONS = [
 ];
 
 function renderProfile(c) {
+  if (typeof AI._flowaiTrainingOptIn === 'undefined' && getFlowAIRuntime()) {
+    flowaiEnsureLocalRuntime(false)
+      .then(runtime => runtime.getTrainingOptIn())
+      .then(value => {
+        AI._flowaiTrainingOptIn = value;
+        rerenderFlowAISettingsView();
+      })
+      .catch(() => {});
+  }
   const admin = isAdmin(), founder = isFounder(), displayName = getDisplayName();
   const hoursStudied = Math.floor(S.studyMinutes / 60), minsLeft = S.studyMinutes % 60;
   const av = S.userProfile?.avatar || '';
@@ -4897,6 +4906,8 @@ function renderProfile(c) {
     html += '<div style="color:var(--text-muted);font-size:13.5px;padding:8px 0">No study groups yet. <button class="btn btn-ghost btn-sm" onclick="navigate(\'groups\')" style="display:inline-flex">Create or join one</button></div>';
   }
   html += '</div>';
+
+  html += renderFlowAISettingsCard();
 
   // SETTINGS
   html += '<div class="profile-section"><div class="profile-section-title">Settings &amp; Upgrade</div>';
@@ -8097,8 +8108,8 @@ function classifyFlowAIIntent(parts) {
 
 function flowaiModelStatusLabel(health = getFlowAIModelHealth()) {
   if (health.state === 'loading') return 'Loading local model...';
-  if (health.mode === 'neural' && health.modelLoaded) return `Local model ready${health.generatorModel ? ` · ${health.generatorModel}` : ''}`;
-  if (health.state === 'reduced') return 'Reduced local mode';
+  if (health.mode === 'neural' && health.modelLoaded) return 'Model loaded';
+  if (health.state === 'reduced') return 'Local model unavailable';
   if (health.state === 'error') return 'Local model unavailable';
   return 'Local model not loaded';
 }
@@ -8120,10 +8131,11 @@ async function flowaiEnsureLocalRuntime(loadModel = false) {
 async function flowaiLoadLocalModel() {
   try {
     await flowaiEnsureLocalRuntime(true);
-    toast(getFlowAIModelHealth().mode === 'neural' ? 'FlowAI local model is ready' : 'FlowAI is running in reduced local mode');
+    toast(getFlowAIModelHealth().mode === 'neural' ? 'FlowAI local model is ready' : 'FlowAI is still available without the local model');
   } catch (e) {
-    toast(`FlowAI local model failed to load: ${e.message}`);
+    toast(`FlowAI local model failed to load: ${flowaiFriendlyError(e)}`);
   }
+  rerenderFlowAISettingsView();
   renderAIPanel();
 }
 
@@ -8133,6 +8145,16 @@ async function flowaiToggleTrainingOptIn() {
   await runtime.setTrainingOptIn(next);
   AI._flowaiTrainingOptIn = next;
   toast(next ? 'FlowAI training opt-in enabled for future examples' : 'FlowAI training opt-in disabled');
+  renderAIPanel();
+}
+
+async function flowaiSetTrainingOptIn(enabled) {
+  const runtime = await flowaiEnsureLocalRuntime(false);
+  const next = !!enabled;
+  await runtime.setTrainingOptIn(next);
+  AI._flowaiTrainingOptIn = next;
+  toast(next ? 'FlowAI training opt-in enabled for future examples' : 'FlowAI training opt-in disabled');
+  rerenderFlowAISettingsView();
   renderAIPanel();
 }
 
@@ -8146,16 +8168,15 @@ async function flowaiResetMemory() {
 function renderFlowAILocalBanner(options = {}) {
   const compact = !!options.compact;
   const health = getFlowAIModelHealth();
-  const trainingOptIn = !!AI._flowaiTrainingOptIn;
   const tone = flowaiModelStatusTone(health);
   const modeText = health.mode === 'neural' && health.modelLoaded
-    ? `Browser neural model active${health.backend ? ` via ${health.backend}` : ''}`
-    : 'Browser-only fallback with retrieval';
+    ? 'Using your browser model'
+    : 'Using your workspace for context';
   const detail = health.lastError
-    ? esc(health.lastError)
+    ? esc(flowaiFriendlyError(health.lastError))
     : (health.mode === 'neural' && health.modelLoaded
       ? 'Grounded answers use local retrieval from notes, tasks, calendar, and projects.'
-      : 'FlowAI can still answer using local retrieval while the model is unavailable or still loading.');
+      : 'FlowAI uses your notes, tasks, calendar, and projects as context while the local model loads in the background.');
   return `<div class="ai-settings-banner" style="margin-bottom:${compact ? '10px' : '14px'}">
     <div style="display:flex;align-items:center;justify-content:space-between;gap:10px;flex-wrap:wrap">
       <div>
@@ -8164,11 +8185,76 @@ function renderFlowAILocalBanner(options = {}) {
       </div>
       <div style="display:flex;gap:6px;flex-wrap:wrap">
         <button class="btn btn-action btn-sm" onclick="flowaiLoadLocalModel()">${health.state === 'loading' ? 'Loading...' : (health.modelLoaded ? 'Reload Model' : 'Load Model')}</button>
-        <button class="btn btn-ghost btn-sm" onclick="flowaiToggleTrainingOptIn()">${trainingOptIn ? 'Training On' : 'Training Off'}</button>
         ${compact ? '' : '<button class="btn btn-ghost btn-sm" onclick="flowaiResetMemory()">Reset Memory</button>'}
       </div>
     </div>
     <div style="font-size:11px;color:var(--text-faint);margin-top:8px;line-height:1.5">${detail}</div>
+  </div>`;
+}
+
+function flowaiFriendlyError(error) {
+  const message = String(error?.message || error || '').trim();
+  if (!message) return 'There was an issue loading the browser model.';
+  if (/VectorInt|Expected null or instance/i.test(message)) return 'There was an issue loading the browser model. FlowAI will keep working with your workspace context.';
+  if (/null|undefined|TypeError|ReferenceError|SyntaxError/i.test(message)) return 'There was an issue with the browser model. Please try loading it again.';
+  if (/failed to fetch|network|load/i.test(message)) return 'There was an issue loading the browser model. Please check your connection and try again.';
+  return 'There was an issue with the browser model. Please try again.';
+}
+
+function queueFlowAIModelLoad(reason = 'background') {
+  if (AI._flowaiAutoLoadStarted) return;
+  const health = getFlowAIModelHealth();
+  if (health.modelLoaded || health.state === 'loading') return;
+  AI._flowaiAutoLoadStarted = true;
+  setTimeout(() => {
+    flowaiEnsureLocalRuntime(true)
+      .catch(error => {
+        console.warn(`[FlowAI] ${reason} local model load failed`, error);
+      })
+      .finally(() => {
+        AI._flowaiAutoLoadStarted = false;
+        renderAIPanel();
+        rerenderFlowAISettingsView();
+      });
+  }, 120);
+}
+
+function rerenderFlowAISettingsView() {
+  if (S.view !== 'profile' && S.view !== 'settings') return;
+  const container = document.getElementById('view');
+  if (container) renderProfile(container);
+}
+
+function renderFlowAISettingsCard() {
+  const health = getFlowAIModelHealth();
+  const trainingOptIn = !!AI._flowaiTrainingOptIn;
+  return `<div class="profile-section" style="margin-top:20px">
+    <div class="profile-section-title">FlowAI Runtime</div>
+    <div style="background:var(--bg-sidebar);border:1px solid var(--border);border-radius:var(--r-md);padding:16px 18px;display:grid;gap:14px">
+      <div>
+        <div style="font-size:13px;font-weight:700;color:var(--text);margin-bottom:4px">${esc(flowaiModelStatusLabel(health))}</div>
+        <div style="font-size:12px;color:var(--text-muted);line-height:1.5">
+          ${health.mode === 'neural' && health.modelLoaded
+            ? 'The browser model is active for richer FlowAI responses.'
+            : 'FlowAI can answer from your workspace immediately, and you can load the browser model here for richer responses.'}
+        </div>
+        ${health.lastError ? `<div style="font-size:11px;color:var(--text-faint);margin-top:8px;line-height:1.5">${esc(flowaiFriendlyError(health.lastError))}</div>` : ''}
+      </div>
+      <div style="display:flex;gap:8px;flex-wrap:wrap">
+        <button class="btn btn-action btn-sm" onclick="flowaiLoadLocalModel()">${health.state === 'loading' ? 'Loading...' : (health.modelLoaded ? 'Reload Local Model' : 'Load Local Model')}</button>
+        <button class="btn btn-ghost btn-sm" onclick="flowaiResetMemory()">Reset FlowAI Memory</button>
+      </div>
+      <div style="display:flex;align-items:flex-start;justify-content:space-between;gap:12px;padding-top:2px;border-top:1px solid var(--border)">
+        <div>
+          <div style="font-size:12px;font-weight:700;color:var(--text);margin-top:12px">Training Opt-In</div>
+          <div style="font-size:11px;color:var(--text-faint);line-height:1.5;margin-top:4px">Allow FlowAI to store anonymized examples locally in this browser so accepted suggestions can improve future behavior for you.</div>
+        </div>
+        <label style="display:inline-flex;align-items:center;gap:8px;white-space:nowrap;margin-top:12px">
+          <input type="checkbox" ${trainingOptIn ? 'checked' : ''} onchange="flowaiSetTrainingOptIn(this.checked)">
+          <span style="font-size:12px;color:var(--text)">${trainingOptIn ? 'Opted in' : 'Opted out'}</span>
+        </label>
+      </div>
+    </div>
   </div>`;
 }
 
@@ -8700,6 +8786,7 @@ function openAIPanel() {
   document.getElementById('ai-panel')?.classList.add('open');
   renderAIPanel();
   requestAnimationFrame(_initAIPanelInteractions);
+  queueFlowAIModelLoad('panel-open');
 }
 
 function openAIPanelTab(tab) {
@@ -8849,6 +8936,13 @@ function _initAIPanelInteractions() {
   const handle = document.getElementById('ai-panel-drag-handle');
   const grip = document.getElementById('ai-resize-grip');
   if (!panel || !handle) return;
+  if (panel.dataset.interactionsBound === 'true') return;
+  panel.dataset.interactionsBound = 'true';
+
+  const savedWidth = Number(localStorage.getItem('flowai_panel_width') || 0);
+  const savedHeight = Number(localStorage.getItem('flowai_panel_height') || 0);
+  if (savedWidth) panel.style.width = Math.max(360, Math.min(window.innerWidth - 24, savedWidth)) + 'px';
+  if (savedHeight) panel.style.height = Math.max(440, Math.min(window.innerHeight - 24, savedHeight)) + 'px';
 
   // ── Drag to move ──────────────────────────────────────────────────────
   let dragOffX = 0, dragOffY = 0, dragging = false;
@@ -8874,7 +8968,11 @@ function _initAIPanelInteractions() {
     panel.style.top = y + 'px';
   });
   document.addEventListener('mouseup', () => {
-    if (dragging) { dragging = false; document.body.style.userSelect = ''; handle.style.cursor = ''; }
+    if (dragging) {
+      dragging = false;
+      document.body.style.userSelect = '';
+      handle.style.cursor = '';
+    }
   });
 
   // ── Resize from grip ─────────────────────────────────────────────────
@@ -8890,13 +8988,18 @@ function _initAIPanelInteractions() {
   });
   document.addEventListener('mousemove', e => {
     if (!resizing) return;
-    const w = Math.max(320, Math.min(700, startW + (e.clientX - startX)));
-    const h = Math.max(400, Math.min(window.innerHeight - 40, startH + (e.clientY - startY)));
+    const w = Math.max(360, Math.min(Math.max(360, window.innerWidth - 24), startW + (e.clientX - startX)));
+    const h = Math.max(440, Math.min(window.innerHeight - 24, startH + (e.clientY - startY)));
     panel.style.width = w + 'px';
     panel.style.height = h + 'px';
   });
   document.addEventListener('mouseup', () => {
-    if (resizing) { resizing = false; document.body.style.userSelect = ''; }
+    if (resizing) {
+      resizing = false;
+      document.body.style.userSelect = '';
+      localStorage.setItem('flowai_panel_width', String(panel.offsetWidth));
+      localStorage.setItem('flowai_panel_height', String(panel.offsetHeight));
+    }
   });
 }
 
@@ -8915,7 +9018,7 @@ function renderAISettingsBanner() {
   const localBanner = renderFlowAILocalBanner({ compact: true });
   return localBanner + `<div class="ai-settings-banner">
     <p><strong>Local-only FlowAI:</strong> all Write, Study, Organise, and chat actions now run in-browser through the FlowAI runtime. No worker URL is required.</p>
-    <div style="font-size:11px;color:var(--text-faint);margin-top:8px">For best results, load the browser model on a WebGPU-capable device. Reduced mode still works offline with retrieval and action planning.</div>
+    <div style="font-size:11px;color:var(--text-faint);margin-top:8px">For best results, load the browser model from Settings. FlowAI will still use your workspace context while the local model warms up.</div>
   </div>`;
 }
 
@@ -8923,7 +9026,7 @@ function renderAIConfigWidget() {
   return `<div class="ai-settings-banner" style="margin-top:8px">
     <div style="font-size:12px;font-weight:700;margin-bottom:8px;color:var(--text)">⚙ FlowAI Runtime</div>
     <div style="font-size:12px;color:var(--text-muted);line-height:1.5">
-      FlowAI now runs fully in-browser. Load the local model above for the best quality, or keep using reduced retrieval mode if your device is lighter.
+      FlowAI now runs fully in-browser. Load the local model from Settings for the best quality.
     </div>
     <div style="font-size:11px;color:var(--text-faint);margin-top:8px;line-height:1.5">
       No Cloudflare Worker URL is required for FlowAI.
