@@ -1,0 +1,17 @@
+{
+  "name": "flowday-ai-worker",
+  "version": "1.0.0",
+  "description": "Cloudflare Worker — OpenAI proxy for FlowDay",
+  "private": true,
+  "scripts": {
+    "dev":    "wrangler dev --local",
+    "deploy": "wrangler deploy",
+    "deploy:staging":    "wrangler deploy --env staging",
+    "deploy:production": "wrangler deploy --env production",
+    "tail":   "wrangler tail",
+    "secret": "wrangler secret put OPENAI_API_KEY"
+  },
+  "devDependencies": {
+    "wrangler": "^3.0.0"
+  }
+}

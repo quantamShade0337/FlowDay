@@ -1,0 +1,74 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Axinote</title>
+
+  <!-- Security headers should be set server-side, not via meta tags -->
+  <!-- Meta CSP was blocking Firebase scripts and connections - removed -->
+
+  <!-- Firebase Compat SDK v9 (compat scripts exist on 9.x, not 10.x) -->
+  <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-app-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-auth-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-database-compat.js"></script>
+  <script>
+    firebase.initializeApp({
+      apiKey: "AIzaSyCmmnXzel_rrxE7xM2mm0htu4Ehh9Eo6Rs",
+      authDomain: "studypilot-92014.firebaseapp.com",
+      databaseURL: "https://studypilot-92014-default-rtdb.asia-southeast1.firebasedatabase.app",
+      projectId: "studypilot-92014",
+      storageBucket: "studypilot-92014.firebasestorage.app",
+      messagingSenderId: "267953191976",
+      appId: "1:267953191976:web:0c625dc16e7fa8b822c91d"
+    });
+
+    const _auth = firebase.auth();
+    const _db   = firebase.database();
+
+    // Keep user logged in across tab switches and browser restarts
+    _auth.setPersistence(firebase.auth.Auth.Persistence.LOCAL).catch(() => {});
+
+    // Wrap compat API to match the modular API shape used in app.js
+    window.fb = {
+      auth:     _auth,
+      database: _db,
+      createUserWithEmailAndPassword: (auth, email, pass) => auth.createUserWithEmailAndPassword(email, pass),
+      signInWithEmailAndPassword:     (auth, email, pass) => auth.signInWithEmailAndPassword(email, pass),
+      signOut:          (auth)         => auth.signOut(),
+      onAuthStateChanged:(auth, cb)    => auth.onAuthStateChanged(cb),
+      ref:    (db, path)               => db.ref(path),
+      set:    (ref, data)              => ref.set(data),
+      get:    (ref)                    => ref.get(),
+      update: (ref, data)              => ref.update(data),
+      remove: (ref)                    => ref.remove(),
+      push:   (ref, data)              => data !== undefined ? ref.push(data) : ref.push(),
+      onValue:(ref, cb)                => { ref.on('value', cb); return () => ref.off('value', cb); },
+      onDisconnect: (ref)              => ref.onDisconnect(),
+    };
+  </script>
+
+  <!-- PDF.js — renders PDFs via canvas, works with data: URIs and URLs -->
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js"></script>
+  <script>
+    if (typeof pdfjsLib !== 'undefined') {
+      pdfjsLib.GlobalWorkerOptions.workerSrc =
+        'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js';
+    }
+  </script>
+
+  <link rel="stylesheet" href="/css/styles.css">
+</head>
+<body>
+
+  <div id="auth-screen">
+    <!-- Auth is rendered by JS -->
+  </div>
+
+  <div id="app" class="hidden">
+    <!-- App is rendered by JS -->
+  </div>
+
+  <script src="/js/app.js"></script>
+</body>
+</html>

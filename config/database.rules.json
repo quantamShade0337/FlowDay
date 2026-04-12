@@ -1,0 +1,180 @@
+{
+  "rules": {
+    // ── USER DATA ────────────────────────────────────────────────
+    "users": {
+      "$uid": {
+        ".read": "auth != null && (auth.uid === $uid || root.child('users/' + auth.uid + '/profile/isAdmin').val() === true)",
+        ".write": "auth != null && auth.uid === $uid",
+
+        "profile": {
+          ".write": "auth != null && ((auth.uid === $uid && (!newData.child('isAdmin').exists() || newData.child('isAdmin').val() === data.child('isAdmin').val())) || root.child('users/' + auth.uid + '/profile/isAdmin').val() === true)",
+
+          "isAdmin": {
+            ".write": "auth != null && root.child('users/' + auth.uid + '/profile/isAdmin').val() === true && auth.uid !== $uid"
+          }
+        },
+
+        "credits": {
+          ".write": "auth != null && (auth.uid === $uid || root.child('users/' + auth.uid + '/profile/isAdmin').val() === true)"
+        }
+      }
+    },
+
+    // ── USER INDEX ───────────────────────────────────────────────
+    "userIndex": {
+      ".read": false,
+      "$uid": {
+        ".read": "auth != null && (auth.uid === $uid || root.child('users/' + auth.uid + '/profile/isAdmin').val() === true)",
+        ".write": "auth != null && ((auth.uid === $uid && (!newData.child('isAdmin').exists() || newData.child('isAdmin').val() === data.child('isAdmin').val())) || root.child('users/' + auth.uid + '/profile/isAdmin').val() === true)",
+        "name": { ".validate": "newData.isString() && newData.val().length <= 100" },
+        "displayName": { ".validate": "!newData.exists() || (newData.isString() && newData.val().length <= 100)" },
+        "email": { ".validate": "newData.isString() && newData.val().length <= 254" },
+        "uid": { ".validate": "newData.isString() && newData.val() === $uid" },
+        "tier": { ".validate": "!newData.exists() || (newData.isString() && newData.val().length <= 24)" },
+        "lastSeenAt": { ".validate": "!newData.exists() || newData.isString()" },
+        "createdAt": { ".validate": "!newData.exists() || newData.isString()" },
+        "isAdmin": { ".validate": "!newData.exists() || newData.isBoolean()" }
+      }
+    },
+
+    // ── ADMIN-ONLY DATA ──────────────────────────────────────────
+    "adminAudit": {
+      ".read": "auth != null && root.child('users/' + auth.uid + '/profile/isAdmin').val() === true",
+      ".write": "auth != null && auth.token.email === 'ethan.sohyt@gmail.com'"
+    },
+
+    "adminStats": {
+      ".read": "auth != null && root.child('users/' + auth.uid + '/profile/isAdmin').val() === true",
+      ".write": "auth != null && auth.token.email === 'ethan.sohyt@gmail.com'"
+    },
+
+    "adminConfig": {
+      ".read": "auth != null && root.child('users/' + auth.uid + '/profile/isAdmin').val() === true",
+      ".write": "auth != null && auth.token.email === 'ethan.sohyt@gmail.com'"
+    },
+
+    // ── GROUP JOIN LOOKUP ────────────────────────────────────────
+    "groupJoinIndex": {
+      "$code": {
+        ".read": "auth != null",
+        ".write": "auth != null && ((!data.exists() && newData.child('createdBy').val() === auth.uid) || (data.exists() && data.child('createdBy').val() === auth.uid))"
+      }
+    },
+
+    // ── STUDY GROUPS ─────────────────────────────────────────────
+    "studyGroups": {
+      "$groupId": {
+        ".read": "auth != null && (data.child('createdBy').val() === auth.uid || data.child('members/' + auth.uid).exists() || root.child('users/' + auth.uid + '/profile/isAdmin').val() === true)",
+        ".write": "auth != null && ((!data.exists() && newData.child('createdBy').val() === auth.uid) || (data.exists() && data.child('createdBy').val() === auth.uid))",
+
+        "members": {
+          "$uid": {
+            ".write": "auth != null && data.parent().parent().exists() && ((auth.uid === $uid && newData.child('uid').val() === auth.uid) || data.parent().parent().child('createdBy').val() === auth.uid)"
+          }
+        },
+
+        "noteIndex": {
+          "$noteId": {
+            ".write": "auth != null && data.parent().parent().exists() && ((newData.exists() && newData.val() === auth.uid && root.child('collab/' + $noteId + '/createdBy').val() === auth.uid && root.child('collab/' + $noteId + '/groupId').val() === $groupId) || (!newData.exists() && data.val() === auth.uid))"
+          }
+        },
+
+        "chat": {
+          ".read": "auth != null && (data.parent().child('createdBy').val() === auth.uid || data.parent().child('members/' + auth.uid).exists() || root.child('users/' + auth.uid + '/profile/isAdmin').val() === true)",
+          "$messageId": {
+            ".write": "auth != null && data.parent().parent().exists() && !data.exists() && data.parent().parent().child('members/' + auth.uid).exists() && newData.child('uid').val() === auth.uid"
+          }
+        },
+
+        "eliteBenchmarks": {
+          ".read": "auth != null && (data.parent().child('createdBy').val() === auth.uid || data.parent().child('members/' + auth.uid).exists() || root.child('users/' + auth.uid + '/profile/isAdmin').val() === true)",
+          "$uid": {
+            ".write": "auth != null && data.parent().parent().exists() && auth.uid === $uid && data.parent().parent().child('members/' + auth.uid).exists()"
+          }
+        }
+      }
+    },
+
+    // ── COLLAB NOTES ─────────────────────────────────────────────
+    "collab": {
+      "$noteId": {
+        ".read": "auth != null && (data.child('createdBy').val() === auth.uid || (data.child('groupId').exists() && root.child('studyGroups/' + data.child('groupId').val() + '/members/' + auth.uid).exists()) || root.child('users/' + auth.uid + '/profile/isAdmin').val() === true)",
+        ".write": "auth != null && ((!data.exists() && newData.child('createdBy').val() === auth.uid && (!newData.child('groupId').exists() || newData.child('groupId').val() === null || root.child('studyGroups/' + newData.child('groupId').val() + '/members/' + auth.uid).exists())) || (data.exists() && !newData.exists() && data.child('createdBy').val() === auth.uid) || (data.exists() && newData.exists() && (data.child('createdBy').val() === auth.uid || (data.child('groupId').exists() && root.child('studyGroups/' + data.child('groupId').val() + '/members/' + auth.uid).exists()) || root.child('users/' + auth.uid + '/profile/isAdmin').val() === true)))",
+
+        "id": {
+          ".validate": "newData.isString() && (!data.exists() || newData.val() === data.val())"
+        },
+        "createdBy": {
+          ".validate": "newData.isString() && (!data.exists() || newData.val() === data.val())"
+        },
+        "createdAt": {
+          ".validate": "newData.isString() && (!data.exists() || newData.val() === data.val())"
+        },
+        "createdByName": {
+          ".validate": "newData.isString() && newData.val().length <= 100 && (!data.exists() || newData.val() === data.val())"
+        },
+        "title": {
+          ".validate": "newData.isString() && newData.val().length <= 200 && (!data.exists() || auth.uid === newData.parent().child('createdBy').val() || root.child('users/' + auth.uid + '/profile/isAdmin').val() === true || newData.val() === data.val())"
+        },
+        "description": {
+          ".validate": "newData.isString() && newData.val().length <= 1000 && (!data.exists() || auth.uid === newData.parent().child('createdBy').val() || root.child('users/' + auth.uid + '/profile/isAdmin').val() === true || newData.val() === data.val())"
+        },
+        "groupId": {
+          ".validate": "(!newData.exists() || newData.isString()) && (!data.exists() || auth.uid === newData.parent().child('createdBy').val() || root.child('users/' + auth.uid + '/profile/isAdmin').val() === true || newData.val() === data.val())"
+        },
+        "content": {
+          ".validate": "newData.isString() && newData.val().length <= 100000"
+        },
+        "tables": {
+          ".validate": "true"
+        },
+        "images": {
+          ".validate": "true"
+        },
+        "updatedAt": {
+          ".validate": "newData.isString()"
+        },
+        "lastEditBy": {
+          ".validate": "newData.isString() && newData.val().length <= 100"
+        },
+        "presence": {
+          "$uid": {
+            ".write": "auth != null && auth.uid === $uid"
+          }
+        }
+      }
+    },
+
+    // ── NOTIFICATIONS ────────────────────────────────────────────
+    "notifications": {
+      "$uid": {
+        ".read": "auth != null && auth.uid === $uid",
+        "$notificationId": {
+          ".write": "auth != null && (auth.uid === $uid || (!data.exists() && newData.child('type').val() === 'groupInvite' && newData.child('from').val() === auth.uid && newData.child('to').val() === $uid && root.child('studyGroups/' + newData.child('groupId').val() + '/createdBy').val() === auth.uid))",
+          "id": { ".validate": "newData.isString() && newData.val().length <= 120" },
+          "type": { ".validate": "newData.val() === 'groupInvite'" },
+          "groupId": { ".validate": "newData.isString() && newData.val().length <= 120" },
+          "groupName": { ".validate": "newData.isString() && newData.val().length <= 120" },
+          "from": { ".validate": "newData.isString()" },
+          "fromName": { ".validate": "newData.isString() && newData.val().length <= 100" },
+          "to": { ".validate": "newData.isString() && newData.val() === $uid" },
+          "createdAt": { ".validate": "newData.isString()" },
+          "read": { ".validate": "newData.isBoolean()" },
+          "dismissed": { ".validate": "newData.isBoolean()" }
+        }
+      }
+    },
+
+    // ── FEEDBACK ─────────────────────────────────────────────────
+    "feedback": {
+      ".write": "auth != null",
+      ".read": "auth != null && auth.token.email === 'ethan.sohyt@gmail.com'"
+    },
+
+    // ── CATCH-ALL ────────────────────────────────────────────────
+    "$other": {
+      ".read": false,
+      ".write": false
+    }
+  }
+}

@@ -1,0 +1,3819 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <base href="/">
+  <title>Axinote, formerly Flowday — Your cozy study workspace</title>
+  
+  <!-- Favicons -->
+  <link rel="icon" type="image/x-icon" href="assets/icons/favicon.ico">
+  <link rel="icon" type="image/png" sizes="16x16" href="assets/icons/favicon-16x16.png">
+  <link rel="icon" type="image/png" sizes="32x32" href="assets/icons/favicon-32x32.png">
+  <link rel="apple-touch-icon" sizes="180x180" href="assets/icons/apple-touch-icon.png">
+  <link rel="icon" type="image/png" sizes="192x192" href="assets/icons/android-chrome-192x192.png">
+  <link rel="icon" type="image/png" sizes="512x512" href="assets/icons/android-chrome-512x512.png">
+  <link rel="manifest" href="assets/icons/site.webmanifest">
+  
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Fraunces:ital,opsz,wght@0,9..144,300;0,9..144,400;0,9..144,600;0,9..144,700;0,9..144,900;1,9..144,300;1,9..144,400;1,9..144,600;1,9..144,700&family=Plus+Jakarta+Sans:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+  
+  <style>
+    /* ── TOKENS ────────────────────────────────────────── */
+    :root {
+      --ink:       #1a1108;
+      --ink-2:     #3d2e1a;
+      --ink-3:     #7a6040;
+      --ink-4:     #b89870;
+      --ink-5:     #d4bb97;
+      --paper:     #faf5ec;
+      --paper-2:   #f3ead8;
+      --paper-3:   #ece0c8;
+      --ember:     #b8521e;
+      --ember-lt:  #d46830;
+      --ember-dim: rgba(184,82,30,.11);
+      --ember-glow:rgba(184,82,30,.22);
+      --moss:      #3d6b45;
+      --ochre:     #9a7018;
+      --navy:      #1e3050;
+      --f-head:    'Fraunces', Georgia, serif;
+      --f-body:    'Plus Jakarta Sans', sans-serif;
+      --rule:      rgba(90,60,20,.1);
+    }
+
+    /* ── RESET ─────────────────────────────────────────── */
+    *, *::before, *::after { box-sizing:border-box; margin:0; padding:0; }
+    html { scroll-behavior:smooth; }
+    body {
+      font-family:var(--f-body);
+      background:var(--paper);
+      color:var(--ink);
+      line-height:1.6;
+      -webkit-font-smoothing:antialiased;
+      overflow-x:hidden;
+      cursor:none;
+    }
+
+    /* ── CUSTOM CURSOR ─────────────────────────────────── */
+    #cursor {
+      position:fixed; top:0; left:0; z-index:9999;
+      width:10px; height:10px; border-radius:50%;
+      background:var(--ember);
+      pointer-events:none;
+      transform:translate(-50%,-50%);
+      transition:width .18s, height .18s, background .18s;
+      mix-blend-mode:multiply;
+      will-change:left,top;
+    }
+    #cursor.big { width:38px; height:38px; background:var(--ember-dim); }
+    @media (hover:none) { #cursor { display:none; } body { cursor:auto; } }
+
+    /* ── NOISE TEXTURE ─────────────────────────────────── */
+    body::before {
+      content:''; position:fixed; inset:0; z-index:0; pointer-events:none;
+      opacity:.028;
+      background-image:url("data:image/svg+xml,%3Csvg viewBox='0 0 512 512' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.75' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E");
+      background-size:256px;
+    }
+
+    /* ── ANIMATIONS ────────────────────────────────────── */
+    @keyframes ink-in { from{opacity:0;transform:translateY(16px) skewY(.3deg)} to{opacity:1;transform:none} }
+    @keyframes float  { 0%,100%{transform:translateY(0)} 50%{transform:translateY(-8px)} }
+    @keyframes fade-up { from{opacity:0;transform:translateY(24px)} to{opacity:1;transform:none} }
+
+    .ink { opacity:0; animation:ink-in .72s cubic-bezier(.22,1,.36,1) forwards; }
+    .i1{animation-delay:.04s} .i2{animation-delay:.13s} .i3{animation-delay:.23s}
+    .i4{animation-delay:.35s} .i5{animation-delay:.49s} .i6{animation-delay:.65s}
+
+    /* ══════════════════════════════════════════════════
+       NAV
+    ══════════════════════════════════════════════════ */
+    nav {
+      position:sticky; top:0; z-index:100;
+      display:flex; align-items:center; justify-content:space-between;
+      padding:0 52px; height:62px;
+      background:rgba(250,245,236,.95);
+      backdrop-filter:blur(22px);
+      border-bottom:1px solid var(--rule);
+    }
+
+    .nav-left {
+      display:flex; align-items:center; gap:24px;
+    }
+
+    .nav-logo {
+      display:flex; align-items:center; gap:10px;
+      text-decoration:none; color:var(--ink);
+    }
+
+    .nav-logo-icon {
+      width:36px; height:36px;
+      background:var(--ember);
+      border-radius:8px;
+      display:flex; align-items:center; justify-content:center;
+      box-shadow:0 3px 10px var(--ember-glow);
+      overflow:hidden;
+    }
+
+    .nav-logo-icon img {
+      width:100%; height:100%;
+      object-fit:cover;
+    }
+
+    .nav-logo-text {
+      font-family:var(--f-head);
+      font-size:21px;
+      font-weight:700;
+      font-style:italic;
+      letter-spacing:-.02em;
+    }
+
+    .nav-links { 
+      display:flex; 
+      align-items:center; 
+      gap:8px; 
+    }
+    
+    .nav-link {
+      padding:6px 18px; 
+      font-size:13.5px; 
+      font-weight:500;
+      color:var(--ink-3); 
+      text-decoration:none; 
+      letter-spacing:.01em;
+      transition:color .15s;
+    }
+    .nav-link:hover { color:var(--ink); }
+
+    .nav-actions { 
+      display:flex; 
+      align-items:center; 
+      gap:10px; 
+    }
+
+    .btn-ghost-nav {
+      padding:7px 20px; 
+      border-radius:100px;
+      border:1.5px solid var(--ink-5);
+      font-size:13px; 
+      font-weight:600; 
+      font-family:var(--f-body);
+      color:var(--ink-3); 
+      text-decoration:none; 
+      cursor:none;
+      transition:all .15s;
+    }
+    .btn-ghost-nav:hover { 
+      border-color:var(--ember); 
+      color:var(--ember); 
+    }
+
+    .btn-ink {
+      padding:9px 22px; 
+      border-radius:100px;
+      background:var(--ink); 
+      color:var(--paper);
+      font-size:13px; 
+      font-weight:700; 
+      font-family:var(--f-body);
+      text-decoration:none; 
+      cursor:none;
+      box-shadow:0 2px 14px rgba(26,17,8,.2);
+      transition:all .15s;
+    }
+    .btn-ink:hover { 
+      background:var(--ink-2); 
+      transform:translateY(-1px); 
+      box-shadow:0 4px 22px rgba(26,17,8,.28); 
+    }
+
+    /* ══════════════════════════════════════════════════
+       HERO WITH INTRO VIDEO
+    ══════════════════════════════════════════════════ */
+    .hero {
+      position:relative;
+      padding:80px 52px 60px;
+      text-align:center;
+      overflow:hidden;
+    }
+
+    .hero-content {
+      max-width:900px;
+      margin:0 auto;
+      position:relative;
+      z-index:2;
+    }
+
+    .hero-badge {
+      display:inline-flex; 
+      align-items:center; 
+      gap:9px;
+      border:1.5px solid var(--rule);
+      border-radius:100px;
+      padding:5px 16px 5px 8px;
+      background:var(--paper-2);
+      margin-bottom:24px;
+      font-size:12.5px;
+      font-weight:600;
+      letter-spacing:.01em;
+      color:var(--ink-2);
+    }
+
+    .hero-badge-icon {
+      width:18px; height:18px; border-radius:6px;
+      background:linear-gradient(135deg,var(--ember),var(--ember-lt));
+      display:flex; align-items:center; justify-content:center;
+      animation:float 4s ease-in-out infinite;
+    }
+
+    .hero-h {
+      font-family:var(--f-head);
+      font-size:64px;
+      font-weight:900;
+      letter-spacing:-.03em;
+      line-height:1.1;
+      color:var(--ink);
+      margin-bottom:20px;
+    }
+
+    .hero-h em {
+      font-style:italic;
+      color:var(--ember);
+      position:relative;
+    }
+
+    .hero-p {
+      font-size:19px;
+      line-height:1.6;
+      color:var(--ink-3);
+      max-width:680px;
+      margin:0 auto 40px;
+      font-weight:400;
+    }
+
+    .intro-video-container {
+      max-width:920px;
+      margin:50px auto 0;
+      position:relative;
+      border-radius:18px;
+      overflow:hidden;
+      box-shadow:
+        0 0 0 1px var(--rule),
+        0 8px 32px rgba(26,17,8,.12),
+        0 24px 72px rgba(26,17,8,.08);
+      background:var(--paper-3);
+    }
+
+    .intro-video-container video {
+      width:100%;
+      display:block;
+      border-radius:18px;
+    }
+
+    .video-placeholder {
+      width:100%;
+      aspect-ratio:16/9;
+      background:linear-gradient(135deg, var(--paper-2) 0%, var(--paper-3) 100%);
+      display:flex;
+      align-items:center;
+      justify-content:center;
+      color:var(--ink-3);
+      font-size:16px;
+      font-weight:600;
+    }
+
+    /* ══════════════════════════════════════════════════
+       BENTO GRID - LESS IMPORTANT FEATURES
+    ══════════════════════════════════════════════════ */
+    .bento-section {
+      padding:80px 52px;
+      background:var(--paper-2);
+      position:relative;
+      z-index:1;
+    }
+
+    .bento-header {
+      max-width:900px;
+      margin:0 auto 50px;
+      text-align:center;
+    }
+
+    .sec-eyebrow {
+      font-size:12px;
+      font-weight:700;
+      color:var(--ember);
+      text-transform:uppercase;
+      letter-spacing:.12em;
+      margin-bottom:14px;
+    }
+
+    .sec-h {
+      font-family:var(--f-head);
+      font-size:44px;
+      font-weight:800;
+      line-height:1.15;
+      letter-spacing:-.025em;
+      color:var(--ink);
+    }
+
+    .sec-h em {
+      font-style:italic;
+      color:var(--ember);
+    }
+
+    .bento-grid {
+      max-width:1140px;
+      margin:0 auto;
+      display:grid;
+      grid-template-columns:repeat(auto-fit, minmax(300px, 1fr));
+      gap:20px;
+    }
+
+    .bento-card {
+      background:var(--paper);
+      border:1.5px solid var(--rule);
+      border-radius:20px;
+      padding:28px;
+      cursor:pointer;
+      transition:all .25s cubic-bezier(.22,1,.36,1);
+      position:relative;
+      overflow:hidden;
+    }
+
+    .bento-card:hover {
+      border-color:var(--ember);
+      box-shadow:0 8px 28px rgba(184,82,30,.12);
+      transform:translateY(-3px);
+    }
+
+    .bento-icon {
+      font-size:32px;
+      margin-bottom:16px;
+      display:inline-block;
+    }
+
+    .bento-title {
+      font-size:18px;
+      font-weight:700;
+      color:var(--ink);
+      margin-bottom:10px;
+      letter-spacing:-.01em;
+    }
+
+    .bento-desc {
+      font-size:14px;
+      line-height:1.6;
+      color:var(--ink-3);
+      margin-bottom:14px;
+    }
+
+    .bento-tags {
+      display:flex;
+      gap:6px;
+      flex-wrap:wrap;
+      margin-bottom:14px;
+    }
+
+    .bento-tag {
+      font-size:11px;
+      font-weight:600;
+      color:var(--ember);
+      background:var(--ember-dim);
+      padding:4px 10px;
+      border-radius:100px;
+      letter-spacing:.03em;
+    }
+
+    .bento-expand {
+      max-height:0;
+      overflow:hidden;
+      opacity:0;
+      transition:all .4s cubic-bezier(.22,1,.36,1);
+    }
+
+    .bento-card.expanded .bento-expand {
+      max-height:600px;
+      opacity:1;
+      margin-top:16px;
+    }
+
+    .bento-demo {
+      width:100%;
+      border-radius:12px;
+      border:1px solid var(--rule);
+      overflow:hidden;
+      background:var(--paper-2);
+    }
+
+    .bento-demo img,
+    .bento-demo video {
+      width:100%;
+      display:block;
+    }
+
+    .demo-placeholder {
+      width:100%;
+      aspect-ratio:16/10;
+      background:linear-gradient(135deg, var(--paper-2), var(--paper-3));
+      display:flex;
+      align-items:center;
+      justify-content:center;
+      color:var(--ink-4);
+      font-size:14px;
+    }
+
+    /* ── ANIMATED DEMOS ────────────────────────────────── */
+    .demo-animated {
+      width:100%;
+      min-height:300px;
+      background:linear-gradient(135deg, var(--paper-2), var(--paper-3));
+      border-radius:12px;
+      position:relative;
+      overflow:hidden;
+    }
+
+    .feature-demo {
+      min-height:400px;
+    }
+
+    .intro-demo {
+      width:100%;
+      aspect-ratio:16/9;
+      background:var(--paper);
+      border-radius:18px;
+      position:relative;
+      overflow:hidden;
+    }
+
+    /* Demo UI elements */
+    .demo-window {
+      position:absolute;
+      background:var(--paper);
+      border:1px solid var(--rule);
+      border-radius:12px;
+      box-shadow:0 8px 32px rgba(26,17,8,.12);
+      overflow:hidden;
+    }
+
+    .demo-titlebar {
+      height:32px;
+      background:var(--paper-2);
+      border-bottom:1px solid var(--rule);
+      display:flex;
+      align-items:center;
+      padding:0 12px;
+      gap:6px;
+    }
+
+    .demo-dot {
+      width:10px;
+      height:10px;
+      border-radius:50%;
+    }
+
+    .demo-dot:nth-child(1) { background:var(--red); }
+    .demo-dot:nth-child(2) { background:var(--yellow); }
+    .demo-dot:nth-child(3) { background:var(--green); }
+
+    .demo-content {
+      padding:16px;
+      font-size:13px;
+      line-height:1.6;
+      color:var(--ink-2);
+    }
+
+    .demo-sidebar {
+      position:absolute;
+      left:0;
+      top:0;
+      width:180px;
+      height:100%;
+      background:var(--paper-2);
+      border-right:1px solid var(--rule);
+      padding:12px;
+    }
+
+    .demo-sidebar-item {
+      padding:8px 10px;
+      border-radius:8px;
+      margin-bottom:4px;
+      font-size:13px;
+      color:var(--ink-3);
+      transition:all .2s;
+    }
+
+    .demo-sidebar-item:hover {
+      background:var(--ember-dim);
+      color:var(--ember);
+    }
+
+    .demo-main {
+      margin-left:180px;
+      padding:16px;
+    }
+
+    /* Animations */
+    @keyframes slideInUp {
+      from { opacity:0; transform:translateY(20px); }
+      to { opacity:1; transform:translateY(0); }
+    }
+
+    @keyframes fadeIn {
+      from { opacity:0; }
+      to { opacity:1; }
+    }
+
+    @keyframes pulse {
+      0%, 100% { transform:scale(1); }
+      50% { transform:scale(1.05); }
+    }
+
+    @keyframes typing {
+      from { width:0; }
+      to { width:100%; }
+    }
+
+    /* ══════════════════════════════════════════════════
+       DETAILED FEATURES - IMPORTANT/UNIQUE
+    ══════════════════════════════════════════════════ */
+    .feature-section {
+      padding:90px 52px;
+      position:relative;
+      z-index:1;
+    }
+
+    .feature-section:nth-child(odd) {
+      background:var(--paper);
+    }
+
+    .feature-section:nth-child(even) {
+      background:var(--paper-2);
+    }
+
+    .feature-container {
+      max-width:1140px;
+      margin:0 auto;
+      display:grid;
+      grid-template-columns:1fr 1fr;
+      gap:70px;
+      align-items:center;
+    }
+
+    .feature-container.reverse {
+      direction:rtl;
+    }
+
+    .feature-container.reverse > * {
+      direction:ltr;
+    }
+
+    .feature-content {
+      position:relative;
+    }
+
+    .feature-badge {
+      display:inline-block;
+      font-size:11px;
+      font-weight:700;
+      color:var(--ember);
+      background:var(--ember-dim);
+      padding:5px 14px;
+      border-radius:100px;
+      letter-spacing:.08em;
+      text-transform:uppercase;
+      margin-bottom:20px;
+    }
+
+    .feature-h {
+      font-family:var(--f-head);
+      font-size:38px;
+      font-weight:800;
+      line-height:1.2;
+      letter-spacing:-.025em;
+      color:var(--ink);
+      margin-bottom:20px;
+    }
+
+    .feature-h em {
+      font-style:italic;
+      color:var(--ember);
+    }
+
+    .feature-p {
+      font-size:16px;
+      line-height:1.7;
+      color:var(--ink-3);
+      margin-bottom:26px;
+    }
+
+    .feature-list {
+      list-style:none;
+      padding:0;
+      margin:0;
+    }
+
+    .feature-list li {
+      font-size:15px;
+      line-height:1.6;
+      color:var(--ink-2);
+      margin-bottom:12px;
+      padding-left:28px;
+      position:relative;
+    }
+
+    .feature-list li:before {
+      content:'→';
+      position:absolute;
+      left:0;
+      color:var(--ember);
+      font-weight:700;
+      font-size:16px;
+    }
+
+    .feature-video {
+      position:relative;
+      border-radius:16px;
+      overflow:hidden;
+      border:1px solid var(--rule);
+      box-shadow:0 8px 32px rgba(26,17,8,.08);
+      background:var(--paper-3);
+    }
+
+    .feature-video video {
+      width:100%;
+      display:block;
+      border-radius:16px;
+    }
+
+    .feature-video .video-placeholder {
+      aspect-ratio:4/3;
+    }
+
+    /* ══════════════════════════════════════════════════
+       TESTIMONIALS
+    ══════════════════════════════════════════════════ */
+    .testimonials-section {
+      padding:90px 52px;
+      background:var(--paper);
+      position:relative;
+      z-index:1;
+    }
+
+    .testimonials-grid {
+      max-width:1140px;
+      margin:50px auto 0;
+      display:grid;
+      grid-template-columns:repeat(auto-fit, minmax(320px, 1fr));
+      gap:26px;
+    }
+
+    .testimonial-card {
+      background:var(--paper-2);
+      border:1.5px solid var(--rule);
+      border-radius:18px;
+      padding:32px;
+      transition:all .25s;
+    }
+
+    .testimonial-card:hover {
+      border-color:var(--ember);
+      box-shadow:0 6px 24px rgba(184,82,30,.08);
+      transform:translateY(-2px);
+    }
+
+    .test-quote {
+      font-size:15px;
+      line-height:1.7;
+      color:var(--ink-2);
+      margin-bottom:24px;
+      font-style:italic;
+    }
+
+    .test-author {
+      display:flex;
+      align-items:center;
+      gap:12px;
+    }
+
+    .test-avatar {
+      width:42px;
+      height:42px;
+      border-radius:50%;
+      background:var(--ember);
+      color:#fff;
+      display:flex;
+      align-items:center;
+      justify-content:center;
+      font-weight:700;
+      font-size:16px;
+      flex-shrink:0;
+    }
+
+    .test-name {
+      font-size:14px;
+      font-weight:700;
+      color:var(--ink);
+    }
+
+    .test-role {
+      font-size:13px;
+      color:var(--ink-3);
+    }
+
+    /* ══════════════════════════════════════════════════
+       CTA
+    ══════════════════════════════════════════════════ */
+    .cta-section {
+      padding:100px 52px;
+      text-align:center;
+      background:var(--paper-2);
+      position:relative;
+      z-index:1;
+    }
+
+    .cta-content {
+      max-width:780px;
+      margin:0 auto;
+    }
+
+    .cta-h {
+      font-family:var(--f-head);
+      font-size:52px;
+      font-weight:900;
+      line-height:1.15;
+      letter-spacing:-.03em;
+      color:var(--ink);
+      margin-bottom:24px;
+    }
+
+    .cta-h em {
+      font-style:italic;
+      color:var(--ember);
+    }
+
+    .cta-p {
+      font-size:17px;
+      line-height:1.7;
+      color:var(--ink-3);
+      margin-bottom:36px;
+    }
+
+    .hero-actions {
+      display:flex;
+      gap:14px;
+      align-items:center;
+      justify-content:center;
+      flex-wrap:wrap;
+    }
+
+    .btn-ember {
+      padding:14px 32px;
+      border-radius:100px;
+      background:var(--ember);
+      color:#fff;
+      font-size:15px;
+      font-weight:700;
+      font-family:var(--f-body);
+      text-decoration:none;
+      cursor:none;
+      box-shadow:0 4px 20px var(--ember-glow);
+      transition:all .2s;
+      display:inline-flex;
+      align-items:center;
+      gap:8px;
+    }
+
+    .btn-ember:hover {
+      background:var(--ember-lt);
+      transform:translateY(-2px);
+      box-shadow:0 8px 32px var(--ember-glow);
+    }
+
+    /* ── FEATURE SCREENSHOTS ───────────────────────── */
+    .feature-screenshot-wrap {
+      border-radius: 16px;
+      overflow: hidden;
+      box-shadow:
+        0 0 0 1px var(--rule),
+        0 8px 32px rgba(26,17,8,.12),
+        0 24px 60px rgba(26,17,8,.08);
+      transition: transform .3s cubic-bezier(.22,1,.36,1), box-shadow .3s;
+    }
+
+    .feature-screenshot-wrap:hover {
+      transform: translateY(-6px) scale(1.01);
+      box-shadow:
+        0 0 0 1px var(--rule),
+        0 16px 48px rgba(26,17,8,.18),
+        0 40px 80px rgba(26,17,8,.1);
+    }
+
+    .feature-screenshot {
+      width: 100%;
+      display: block;
+      border-radius: 16px;
+    }
+
+    /* ══════════════════════════════════════════════════
+       FOOTER
+    ══════════════════════════════════════════════════ */
+    footer {
+      padding:52px 52px 42px;
+      background:var(--paper);
+      border-top:1px solid var(--rule);
+      text-align:center;
+      position:relative;
+      z-index:1;
+    }
+
+    .footer-logo {
+      display:inline-flex;
+      align-items:center;
+      gap:10px;
+      font-family:var(--f-head);
+      font-size:21px;
+      font-weight:700;
+      font-style:italic;
+      color:var(--ink);
+      text-decoration:none;
+      margin-bottom:24px;
+    }
+
+    .footer-logo-icon {
+      width:36px;
+      height:36px;
+      background:var(--ember);
+      border-radius:8px;
+      display:flex;
+      align-items:center;
+      justify-content:center;
+      overflow:hidden;
+    }
+
+    .footer-logo-icon img {
+      width:100%;
+      height:100%;
+      object-fit:cover;
+    }
+
+    .footer-links {
+      display:flex;
+      gap:28px;
+      justify-content:center;
+      margin-bottom:22px;
+      flex-wrap:wrap;
+    }
+
+    .footer-link {
+      font-size:13.5px;
+      color:var(--ink-3);
+      text-decoration:none;
+      transition:color .15s;
+    }
+
+    .footer-link:hover {
+      color:var(--ember);
+    }
+
+    .footer-copy {
+      font-size:13px;
+      color:var(--ink-4);
+    }
+
+    /* ══════════════════════════════════════════════════
+       RESPONSIVE
+    ══════════════════════════════════════════════════ */
+    @media (max-width:900px) {
+      nav { padding:0 32px; }
+      .hero { padding:60px 32px 50px; }
+      .hero-h { font-size:48px; }
+      .hero-p { font-size:17px; }
+      .bento-section { padding:60px 32px; }
+      .bento-grid { grid-template-columns:1fr; }
+      .feature-section { padding:70px 32px; }
+      .feature-container {
+        grid-template-columns:1fr;
+        gap:50px;
+      }
+      .feature-container.reverse {
+        direction:ltr;
+      }
+      .feature-h { font-size:32px; }
+      .testimonials-section { padding:70px 32px; }
+      .testimonials-grid { grid-template-columns:1fr; }
+      .cta-section { padding:80px 32px; }
+      .cta-h { font-size:40px; }
+      footer { padding:42px 32px 32px; }
+    }
+
+    @media (max-width:640px) {
+      nav { padding:0 20px; height:56px; }
+      .nav-logo-text { font-size:18px; }
+      .nav-links { display:none; }
+      .hero { padding:40px 20px 40px; }
+      .hero-h { font-size:36px; }
+      .bento-section { padding:50px 20px; }
+      .sec-h { font-size:32px; }
+      .feature-section { padding:50px 20px; }
+      .feature-h { font-size:28px; }
+      .testimonials-section { padding:50px 20px; }
+      .cta-section { padding:60px 20px; }
+      .cta-h { font-size:32px; }
+      footer { padding:32px 20px 24px; }
+    }
+
+    /* ── Scroll reveal ──────────────────────────────── */
+    .sr {
+      opacity:0;
+      transform:translateY(30px);
+      transition:opacity .8s cubic-bezier(.22,1,.36,1), transform .8s cubic-bezier(.22,1,.36,1);
+    }
+
+    .sr.visible {
+      opacity:1;
+      transform:translateY(0);
+    }
+
+    .sr.d1 { transition-delay:.1s; }
+    .sr.d2 { transition-delay:.2s; }
+    .sr.d3 { transition-delay:.3s; }
+  </style>
+</head>
+<body>
+  <div id="cursor"></div>
+
+  <!-- ══════════════════════════════════════════════════
+       NAVIGATION
+  ══════════════════════════════════════════════════ -->
+  <nav>
+    <div class="nav-left">
+      <a href="#" class="nav-logo">
+        <div class="nav-logo-icon">
+          <img src="assets/icons/android-chrome-192x192.png" alt="Axinote">
+        </div>
+        <span class="nav-logo-text">Axinote, formerly Flowday</span>
+      </a>
+      <div class="nav-links">
+        <a href="#features" class="nav-link">Features</a>
+        <a href="#testimonials" class="nav-link">Testimonials</a>
+        <a href="pricing.html" class="nav-link">Pricing</a>
+      </div>
+    </div>
+    <div class="nav-actions">
+      <a href="/app" class="btn-ghost-nav">Log in</a>
+      <a href="/app" class="btn-ember" style="padding:9px 22px;font-size:13px;">Get started</a>
+    </div>
+  </nav>
+
+  <!-- ══════════════════════════════════════════════════
+       HERO WITH INTRO VIDEO
+  ══════════════════════════════════════════════════ -->
+  <section class="hero">
+    <div class="hero-content">
+      <div class="hero-badge ink i1">
+        <div class="hero-badge-icon">
+          <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="3" stroke-linecap="round" stroke-linejoin="round">
+            <path d="M13 2L3 14h9l-1 8 10-12h-9l1-8z"/>
+          </svg>
+        </div>
+        Your cozy corner of the internet
+      </div>
+      
+      <h1 class="hero-h ink i2">
+        The study space that<br>
+        <em>actually feels good</em>
+      </h1>
+      
+      <p class="hero-p ink i3">
+        You've got Notion for notes, Anki for flashcards, Google Calendar for deadlines, and a PDF reader collecting dust. Axinote is one warm place where all of it lives — and an AI that actually knows your life.
+      </p>
+
+      <div class="hero-actions ink i4" style="margin-bottom:0;">
+        <a href="/app" class="btn-ember">
+          Make it yours — it's free
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12h14"/><path d="m12 5 7 7-7 7"/></svg>
+        </a>
+        <a href="pricing.html" class="btn-ghost-nav">See pricing</a>
+      </div>
+
+      <!-- CODED APP PREVIEW -->
+      <div class="app-preview-wrapper ink i5">
+        <div class="fd-app" id="fd-app">
+
+          <!-- MAIN AREA -->
+          <div class="fd-main">
+
+            <!-- TOP BAR -->
+            <div class="fd-topbar">
+              <div class="fd-logo fd-topbar-logo">
+                <div class="fd-logo-icon" style="width:24px;height:24px;border-radius:6px;">
+                  <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M13 2L3 14h9l-1 8 10-12h-9l1-8z"/></svg>
+                </div>
+                <span class="fd-logo-text" style="font-size:15px;">Axinote</span>
+              </div>
+              <nav class="fd-top-nav">
+                <button class="fd-top-tab active" id="tab-home" onclick="switchView('home')">
+                  <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/></svg>
+                  Home
+                </button>
+                <button class="fd-top-tab" id="tab-calendar" onclick="switchView('calendar')">
+                  <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><rect x="3" y="4" width="18" height="18" rx="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg>
+                  Calendar
+                </button>
+                <button class="fd-top-tab" id="tab-tasks" onclick="switchView('tasks')">
+                  <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><polyline points="9 11 12 14 22 4"/><path d="M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11"/></svg>
+                  Tasks
+                </button>
+                <button class="fd-top-tab" id="tab-flashcards" onclick="switchView('flashcards')">
+                  <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><rect x="2" y="7" width="20" height="14" rx="2"/><path d="M16 21V5a2 2 0 0 0-2-2h-4a2 2 0 0 0-2 2v16"/></svg>
+                  Flashcards
+                </button>
+                <button class="fd-top-tab" id="tab-timer" onclick="switchView('timer')">
+                  <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>
+                  Timer
+                </button>
+                <button class="fd-top-tab" id="tab-search" onclick="switchView('search')">
+                  <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
+                  Search
+                </button>
+              </nav>
+              <div class="fd-topbar-right">
+                <button class="fd-icon-btn" id="dark-toggle-btn" onclick="switchView('dark')" title="Toggle dark mode">
+                  <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"/></svg>
+                </button>
+              </div>
+            </div>
+
+            <!-- VIEWS -->
+            <div class="fd-view-container">
+
+              <!-- HOME VIEW -->
+              <div class="fd-view active" id="view-home">
+                <h1 class="fd-page-title">Morning momentum</h1>
+                <div class="fd-username">jerry</div>
+                <div class="fd-subtitle">Best time to tackle the hard stuff</div>
+
+                <div class="fd-cards-row">
+                  <!-- Task Completion -->
+                  <div class="fd-card">
+                    <div class="fd-card-label">TASK COMPLETION</div>
+                    <div class="fd-task-completion">
+                      <div class="fd-ring-wrap">
+                        <svg width="80" height="80" viewBox="0 0 80 80">
+                          <circle cx="40" cy="40" r="34" fill="none" stroke="rgba(184,82,30,.15)" stroke-width="6"/>
+                          <circle cx="40" cy="40" r="34" fill="none" stroke="#b8521e" stroke-width="6"
+                            stroke-dasharray="213.6" stroke-dashoffset="0"
+                            stroke-linecap="round" transform="rotate(-90 40 40)" class="fd-ring-progress"/>
+                        </svg>
+                        <div class="fd-ring-label"><span class="fd-ring-num">100</span><span class="fd-ring-sub">/100</span></div>
+                      </div>
+                      <div class="fd-task-info">
+                        <div class="fd-task-done">3/3 tasks done</div>
+                        <div class="fd-task-due">Today: <strong>0</strong> due items</div>
+                      </div>
+                    </div>
+                  </div>
+
+                  <!-- Workload Graph -->
+                  <div class="fd-card">
+                    <div class="fd-card-label">7-DAY WORKLOAD GRAPH</div>
+                    <div class="fd-chart">
+                      <div class="fd-bars">
+                        <div class="fd-bar-col"><div class="fd-bar" style="height:40%"></div><div class="fd-bar-day">Thu</div></div>
+                        <div class="fd-bar-col"><div class="fd-bar" style="height:40%"></div><div class="fd-bar-day">Fri</div></div>
+                        <div class="fd-bar-col"><div class="fd-bar" style="height:40%"></div><div class="fd-bar-day">Sat</div></div>
+                        <div class="fd-bar-col"><div class="fd-bar" style="height:40%"></div><div class="fd-bar-day">Sun</div></div>
+                        <div class="fd-bar-col"><div class="fd-bar" style="height:40%"></div><div class="fd-bar-day">Mon</div></div>
+                        <div class="fd-bar-col"><div class="fd-bar" style="height:40%"></div><div class="fd-bar-day">Tue</div></div>
+                        <div class="fd-bar-col"><div class="fd-bar" style="height:40%"></div><div class="fd-bar-day">Wed</div></div>
+                      </div>
+                      <div class="fd-chart-note">Tasks and calendar events due each day.</div>
+                    </div>
+                  </div>
+
+                  <!-- Deadline Risk -->
+                  <div class="fd-card">
+                    <div class="fd-card-label">DEADLINE RISK</div>
+                    <div class="fd-deadline-row">
+                      <span class="fd-overdue-badge">0 overdue</span>
+                      <span class="fd-upcoming-text">0 upcoming due</span>
+                    </div>
+                    <div class="fd-no-deadlines">No upcoming deadlines.</div>
+                  </div>
+                </div>
+
+                <div class="fd-cards-row2">
+                  <div class="fd-card">
+                    <div class="fd-card-label">CREDIT RUNWAY</div>
+                    <div class="fd-credits-num">5,000</div>
+                    <div class="fd-credits-sub">credits left this month</div>
+                    <div class="fd-credits-detail">Avg/day 0 · projected 0 this month</div>
+                  </div>
+                  <div class="fd-card fd-card-empty"></div>
+                </div>
+
+                <div class="fd-quick-actions">
+                  <button class="fd-btn-primary">
+                    <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
+                    New Page
+                  </button>
+                  <button class="fd-btn-ghost" onclick="switchView('tasks')">
+                    <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><polyline points="9 11 12 14 22 4"/><path d="M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11"/></svg>
+                    Tasks
+                  </button>
+                  <button class="fd-btn-ghost" onclick="switchView('calendar')">
+                    <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><rect x="3" y="4" width="18" height="18" rx="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg>
+                    Calendar
+                  </button>
+                  <button class="fd-btn-ghost" onclick="switchView('flashcards')">
+                    <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M13 2L3 14h9l-1 8 10-12h-9l1-8z"/></svg>
+                    Flashcards
+                  </button>
+                  <button class="fd-btn-ghost" onclick="switchView('timer')">
+                    <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>
+                    Focus Timer
+                  </button>
+                </div>
+
+                <div class="fd-insights">
+                  <div class="fd-insights-head">
+                    <div>
+                      <div class="fd-insights-title">PERSONALISED STUDY INSIGHTS</div>
+                      <div class="fd-insights-sub">2 study tips to get you started</div>
+                    </div>
+                    <span class="fd-free-badge">FREE</span>
+                  </div>
+                  <div class="fd-insight-item">
+                    <div class="fd-insight-icon"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><polyline points="1 4 1 10 7 10"/><path d="M3.51 15a9 9 0 1 0 .49-3.51"/></svg></div>
+                    <div>
+                      <div class="fd-insight-meta">STUDY METHOD <span class="fd-good-habit">Good habit</span></div>
+                      <div class="fd-insight-text">Spaced repetition: the single most evidence-backed study technique</div>
+                    </div>
+                  </div>
+                  <div class="fd-insight-item">
+                    <div class="fd-insight-icon"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"/></svg></div>
+                    <div>
+                      <div class="fd-insight-meta">STUDY METHOD <span class="fd-good-habit">Good habit</span></div>
+                      <div class="fd-insight-text">Tip: Active recall beats re-reading every time</div>
+                    </div>
+                  </div>
+                </div>
+              </div>
+
+              <!-- CALENDAR VIEW -->
+              <div class="fd-view" id="view-calendar">
+                <h1 class="fd-page-title" style="font-size:26px;margin-bottom:20px;">Calendar</h1>
+                <div class="fd-cal-wrap">
+                  <div class="fd-cal-grid">
+                    <div class="fd-cal-header">
+                      <button class="fd-cal-nav">‹</button>
+                      <strong>February 2026</strong>
+                      <button class="fd-cal-nav">›</button>
+                    </div>
+                    <div class="fd-cal-days-header">
+                      <span>Sun</span><span>Mon</span><span>Tue</span><span>Wed</span><span>Thu</span><span>Fri</span><span>Sat</span>
+                    </div>
+                    <div class="fd-cal-days">
+                      <span class="fd-cal-day fd-cal-other">26</span><span class="fd-cal-day fd-cal-other">27</span><span class="fd-cal-day fd-cal-other">28</span><span class="fd-cal-day fd-cal-other">29</span><span class="fd-cal-day fd-cal-other">30</span><span class="fd-cal-day fd-cal-other">31</span><span class="fd-cal-day">1</span>
+                      <span class="fd-cal-day">2</span><span class="fd-cal-day">3</span><span class="fd-cal-day">4</span><span class="fd-cal-day">5</span><span class="fd-cal-day">6</span><span class="fd-cal-day">7</span><span class="fd-cal-day">8</span>
+                      <span class="fd-cal-day">9</span><span class="fd-cal-day">10</span><span class="fd-cal-day">11</span><span class="fd-cal-day">12</span><span class="fd-cal-day">13</span><span class="fd-cal-day">14</span><span class="fd-cal-day">15</span>
+                      <span class="fd-cal-day">16</span><span class="fd-cal-day">17</span><span class="fd-cal-day">18</span><span class="fd-cal-day">19</span><span class="fd-cal-day">20</span><span class="fd-cal-day">21</span><span class="fd-cal-day">22</span>
+                      <span class="fd-cal-day fd-cal-event-day">23<span class="fd-event-dot" style="background:#7eb5f0"></span></span><span class="fd-cal-day">24</span><span class="fd-cal-day">25</span><span class="fd-cal-day fd-cal-today">26</span><span class="fd-cal-day">27</span><span class="fd-cal-day">28</span><span class="fd-cal-day fd-cal-other">1</span>
+                    </div>
+                  </div>
+                  <div class="fd-cal-sidebar">
+                    <div class="fd-cal-upcoming-label">UPCOMING</div>
+                    <div class="fd-cal-nothing">Nothing upcoming</div>
+                    <div class="fd-cal-cats-label">CATEGORIES</div>
+                    <div class="fd-cal-cat"><span class="fd-cat-dot" style="background:#4a90d9"></span> Class <span class="fd-cat-count">3</span></div>
+                    <div class="fd-cal-cat"><span class="fd-cat-dot" style="background:#7b68c8"></span> Study <span class="fd-cat-count">0</span></div>
+                    <div class="fd-cal-cat"><span class="fd-cat-dot" style="background:#e05a5a"></span> Exam <span class="fd-cat-count">0</span></div>
+                    <div class="fd-cal-cat"><span class="fd-cat-dot" style="background:#e07a5a"></span> Work <span class="fd-cat-count">0</span></div>
+                    <div class="fd-cal-cat"><span class="fd-cat-dot" style="background:#5ab870"></span> Personal <span class="fd-cat-count">4</span></div>
+                  </div>
+                </div>
+              </div>
+
+              <!-- FLASHCARDS VIEW -->
+              <div class="fd-view" id="view-flashcards">
+                <h1 class="fd-page-title" style="font-size:26px;margin-bottom:20px;">Flashcards</h1>
+                <div class="fd-flashcard-wrap">
+                  <div class="fd-flashcard-nav">
+                    <button class="fd-cal-nav">←</button>
+                    <span class="fd-flashcard-title">Lorem Ipsum</span>
+                    <span class="fd-flashcard-count">1/1</span>
+                  </div>
+                  <div class="fd-flashcard" id="fd-flashcard" onclick="flipCard()">
+                    <div class="fd-flashcard-inner" id="fd-flashcard-inner">
+                      <div class="fd-flashcard-front">
+                        <div class="fd-flashcard-q">Question: What is Axinote?</div>
+                      </div>
+                      <div class="fd-flashcard-back">
+                        <div class="fd-flashcard-q">Answer: Your all-in-one cozy study workspace with AI-powered tools!</div>
+                      </div>
+                    </div>
+                  </div>
+                  <div class="fd-flashcard-hint">Click the card to flip it</div>
+                </div>
+              </div>
+
+              <!-- TASKS VIEW -->
+              <div class="fd-view" id="view-tasks">
+                <h1 class="fd-page-title" style="font-size:26px;margin-bottom:20px;">Tasks</h1>
+                <div class="fd-tasks-list">
+                  <div class="fd-task-item fd-task-done-item">
+                    <span class="fd-task-check done">✓</span>
+                    <span class="fd-task-label done-label">Review lecture notes — Chapter 5</span>
+                    <span class="fd-task-priority low">Low</span>
+                  </div>
+                  <div class="fd-task-item fd-task-done-item">
+                    <span class="fd-task-check done">✓</span>
+                    <span class="fd-task-label done-label">Complete problem set #3</span>
+                    <span class="fd-task-priority med">Medium</span>
+                  </div>
+                  <div class="fd-task-item fd-task-done-item">
+                    <span class="fd-task-check done">✓</span>
+                    <span class="fd-task-label done-label">Study flashcard deck: Calculus</span>
+                    <span class="fd-task-priority high">High</span>
+                  </div>
+                  <div class="fd-task-item">
+                    <span class="fd-task-check"></span>
+                    <span class="fd-task-label">Prepare for Thursday exam</span>
+                    <span class="fd-task-priority high">High</span>
+                  </div>
+                  <div class="fd-task-item">
+                    <span class="fd-task-check"></span>
+                    <span class="fd-task-label">Write project proposal</span>
+                    <span class="fd-task-priority med">Medium</span>
+                  </div>
+                </div>
+              </div>
+
+              <!-- TIMER VIEW -->
+              <div class="fd-view" id="view-timer">
+                <h1 class="fd-page-title" style="font-size:26px;margin-bottom:8px;">Morning momentum</h1>
+                <div class="fd-username" style="margin-bottom:12px;">jerry</div>
+                <div class="fd-subtitle" style="margin-bottom:20px;">Best time to tackle the hard stuff</div>
+                <!-- Timer overlay card -->
+                <div class="fd-timer-card">
+                  <div class="fd-timer-header">
+                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>
+                    FOCUS
+                    <span style="margin-left:auto;cursor:pointer;color:var(--fd-ink3);">×</span>
+                  </div>
+                  <div class="fd-timer-time" id="fd-timer-display">25:00</div>
+                  <div class="fd-timer-controls">
+                    <button class="fd-timer-ctrl" onclick="resetTimer()"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><polyline points="1 4 1 10 7 10"/><path d="M3.51 15a9 9 0 1 0 .49-3.51"/></svg></button>
+                    <button class="fd-timer-start" id="fd-timer-btn" onclick="toggleTimer()"><svg width="12" height="12" viewBox="0 0 24 24" fill="currentColor"><polygon points="5 3 19 12 5 21 5 3"/></svg> Start</button>
+                    <button class="fd-timer-ctrl"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><polygon points="5 4 15 12 5 20 5 4"/><line x1="19" y1="5" x2="19" y2="19"/></svg></button>
+                  </div>
+                  <div class="fd-timer-dots">
+                    <span class="fd-tdot active"></span>
+                    <span class="fd-tdot"></span>
+                    <span class="fd-tdot"></span>
+                    <span class="fd-tdot"></span>
+                  </div>
+                  <div class="fd-timer-settings">
+                    <div class="fd-timer-setting">FOCUS <button class="fd-ts-btn">−</button> <strong id="fd-focus-val">25m</strong> <button class="fd-ts-btn">+</button></div>
+                    <div class="fd-timer-setting">BREAK <button class="fd-ts-btn">−</button> <strong>5m</strong> <button class="fd-ts-btn">+</button></div>
+                  </div>
+                  <button class="fd-spotify-btn">
+                    <svg width="12" height="12" viewBox="0 0 24 24" fill="currentColor"><circle cx="12" cy="12" r="12"/><path fill="white" d="M17.9 10.9C14.7 9 9.35 8.8 6.3 9.75c-.5.15-1-.15-1.15-.6-.15-.5.15-1 .6-1.15 3.55-1.05 9.4-.85 13.1 1.35.45.25.6.85.35 1.3-.25.35-.85.5-1.3.25zm-.1 2.8c-.25.35-.7.5-1.05.25-2.7-1.65-6.8-2.15-9.95-1.15-.4.1-.85-.1-.95-.5-.1-.4.1-.85.5-.95 3.65-1.1 8.15-.55 11.25 1.35.3.15.45.65.2 1zm-1.2 2.75c-.2.3-.55.4-.85.2-2.35-1.45-5.3-1.75-8.8-.95-.35.1-.65-.15-.75-.45-.1-.35.15-.65.45-.75 3.8-.85 7.1-.5 9.7 1.1.35.15.4.55.25.85z"/></svg>
+                    Connect Spotify
+                  </button>
+                </div>
+              </div>
+
+              <!-- SEARCH VIEW -->
+              <div class="fd-view" id="view-search">
+                <div class="fd-search-overlay">
+                  <div class="fd-search-box">
+                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
+                    <input class="fd-search-input" placeholder="Search..." value=""/>
+                    <span class="fd-search-close" onclick="switchView('home')">×</span>
+                  </div>
+                  <div class="fd-search-tabs">
+                    <button class="fd-stab active">My Content</button>
+                    <button class="fd-stab">People</button>
+                  </div>
+                  <div class="fd-search-results">
+                    <div class="fd-search-item">
+                      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/></svg>
+                      <span>History</span><span class="fd-si-type">page</span>
+                    </div>
+                    <div class="fd-search-item"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="9 11 12 14 22 4"/></svg><span></span><span class="fd-si-type">task</span></div>
+                    <div class="fd-search-item"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="9 11 12 14 22 4"/></svg><span></span><span class="fd-si-type">task</span></div>
+                    <div class="fd-search-divider">Actions</div>
+                    <div class="fd-search-item"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg><span>New Page</span><span class="fd-si-type">action</span></div>
+                    <div class="fd-search-item"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg><span>Toggle Focus Timer</span><span class="fd-si-type">action</span></div>
+                    <div class="fd-search-item"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="9 11 12 14 22 4"/></svg><span>Today's Tasks</span><span class="fd-si-type">action</span></div>
+                  </div>
+                </div>
+              </div>
+
+              <!-- DARK VIEW -->
+              <div class="fd-view fd-dark-view" id="view-dark">
+                <h1 class="fd-page-title fd-dark-title">Morning momentum</h1>
+                <div class="fd-username fd-dark-username">jerry</div>
+                <div class="fd-subtitle fd-dark-subtitle">Best time to tackle the hard stuff</div>
+                <div class="fd-cards-row fd-dark-cards">
+                  <div class="fd-card fd-dark-card">
+                    <div class="fd-card-label fd-dark-label">TASK COMPLETION</div>
+                    <div class="fd-task-completion">
+                      <div class="fd-ring-wrap">
+                        <svg width="80" height="80" viewBox="0 0 80 80">
+                          <circle cx="40" cy="40" r="34" fill="none" stroke="rgba(184,82,30,.3)" stroke-width="6"/>
+                          <circle cx="40" cy="40" r="34" fill="none" stroke="#d46830" stroke-width="6"
+                            stroke-dasharray="213.6" stroke-dashoffset="0"
+                            stroke-linecap="round" transform="rotate(-90 40 40)"/>
+                        </svg>
+                        <div class="fd-ring-label" style="color:#e8cba0;"><span class="fd-ring-num" style="color:#e8cba0">100</span><span class="fd-ring-sub" style="color:#8a6a40">/100</span></div>
+                      </div>
+                      <div class="fd-task-info">
+                        <div class="fd-task-done" style="color:#e8cba0;">3/3 tasks done</div>
+                        <div class="fd-task-due" style="color:#8a6a40;">Today: <strong style="color:#e8cba0;">0</strong> due items</div>
+                      </div>
+                    </div>
+                  </div>
+                  <div class="fd-card fd-dark-card">
+                    <div class="fd-card-label fd-dark-label">7-DAY WORKLOAD GRAPH</div>
+                    <div class="fd-chart">
+                      <div class="fd-bars">
+                        <div class="fd-bar-col"><div class="fd-bar fd-bar-dark" style="height:40%"></div><div class="fd-bar-day fd-dark-day">Thu</div></div>
+                        <div class="fd-bar-col"><div class="fd-bar fd-bar-dark" style="height:40%"></div><div class="fd-bar-day fd-dark-day">Fri</div></div>
+                        <div class="fd-bar-col"><div class="fd-bar fd-bar-dark" style="height:40%"></div><div class="fd-bar-day fd-dark-day">Sat</div></div>
+                        <div class="fd-bar-col"><div class="fd-bar fd-bar-dark" style="height:40%"></div><div class="fd-bar-day fd-dark-day">Sun</div></div>
+                        <div class="fd-bar-col"><div class="fd-bar fd-bar-dark" style="height:40%"></div><div class="fd-bar-day fd-dark-day">Mon</div></div>
+                        <div class="fd-bar-col"><div class="fd-bar fd-bar-dark" style="height:40%"></div><div class="fd-bar-day fd-dark-day">Tue</div></div>
+                        <div class="fd-bar-col"><div class="fd-bar fd-bar-dark" style="height:40%"></div><div class="fd-bar-day fd-dark-day">Wed</div></div>
+                      </div>
+                      <div class="fd-chart-note" style="color:#8a6a40;">Tasks and calendar events due each day.</div>
+                    </div>
+                  </div>
+                  <div class="fd-card fd-dark-card">
+                    <div class="fd-card-label fd-dark-label">DEADLINE RISK</div>
+                    <div class="fd-deadline-row">
+                      <span class="fd-overdue-badge">0 overdue</span>
+                      <span class="fd-upcoming-text" style="color:#8a6a40;">0 upcoming due</span>
+                    </div>
+                    <div class="fd-no-deadlines" style="color:#8a6a40;">No upcoming deadlines.</div>
+                  </div>
+                </div>
+                <div style="margin-top:12px;text-align:center;font-size:12px;color:#8a6a40;">Click the moon icon above to toggle dark mode</div>
+              </div>
+
+            </div><!-- end view-container -->
+
+            <!-- FlowAI bubble -->
+            <div class="fd-ai-bubble" onclick="switchView(currentView === 'ai' ? 'home' : 'ai')" title="Open FlowAI">
+              <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="2" stroke-linecap="round"><path d="M12 2a2 2 0 0 1 2 2c0 .74-.4 1.39-1 1.73V7h1a7 7 0 0 1 7 7h1a1 1 0 0 1 1 1v3a1 1 0 0 1-1 1h-1v1a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-1H2a1 1 0 0 1-1-1v-3a1 1 0 0 1 1-1h1a7 7 0 0 1 7-7h1V5.73c-.6-.34-1-.99-1-1.73a2 2 0 0 1 2-2z"/></svg>
+              <span class="fd-ai-online"></span>
+            </div>
+
+            <!-- FlowAI panel -->
+            <div class="fd-ai-panel" id="fd-ai-panel">
+              <div class="fd-ai-panel-head">
+                <div class="fd-ai-panel-logo">
+                  <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="2" stroke-linecap="round"><path d="M12 2a2 2 0 0 1 2 2c0 .74-.4 1.39-1 1.73V7h1a7 7 0 0 1 7 7h1a1 1 0 0 1 1 1v3a1 1 0 0 1-1 1h-1v1a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-1H2a1 1 0 0 1-1-1v-3a1 1 0 0 1 1-1h1a7 7 0 0 1 7-7h1V5.73c-.6-.34-1-.99-1-1.73a2 2 0 0 1 2-2z"/></svg>
+                </div>
+                <strong>FlowAI</strong> <span class="fd-free-badge" style="font-size:10px;">FREE</span>
+                <button onclick="switchView('home')" style="margin-left:auto;background:none;border:none;cursor:pointer;color:var(--fd-ink3);font-size:16px;">×</button>
+              </div>
+              <div class="fd-ai-tabs">
+                <button class="fd-ai-tab"><svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/></svg> Write</button>
+                <button class="fd-ai-tab"><svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M2 3h6a4 4 0 0 1 4 4v14a3 3 0 0 0-3-3H2z"/><path d="M22 3h-6a4 4 0 0 0-4 4v14a3 3 0 0 1 3-3h7z"/></svg> Study</button>
+                <button class="fd-ai-tab"><svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><line x1="8" y1="6" x2="21" y2="6"/><line x1="8" y1="12" x2="21" y2="12"/><line x1="8" y1="18" x2="21" y2="18"/><line x1="3" y1="6" x2="3.01" y2="6"/><line x1="3" y1="12" x2="3.01" y2="12"/><line x1="3" y1="18" x2="3.01" y2="18"/></svg> Organise</button>
+                <button class="fd-ai-tab active"><svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M12 2a2 2 0 0 1 2 2c0 .74-.4 1.39-1 1.73V7h1a7 7 0 0 1 7 7h1a1 1 0 0 1 1 1v3a1 1 0 0 1-1 1h-1v1a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-1H2a1 1 0 0 1-1-1v-3a1 1 0 0 1 1-1h1a7 7 0 0 1 7-7h1V5.73c-.6-.34-1-.99-1-1.73a2 2 0 0 1 2-2z"/></svg> FlowAI</button>
+              </div>
+              <div class="fd-ai-body">
+                <div class="fd-ai-logo-big">
+                  <svg width="36" height="36" viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="2" stroke-linecap="round"><path d="M12 2a2 2 0 0 1 2 2c0 .74-.4 1.39-1 1.73V7h1a7 7 0 0 1 7 7h1a1 1 0 0 1 1 1v3a1 1 0 0 1-1 1h-1v1a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-1H2a1 1 0 0 1-1-1v-3a1 1 0 0 1 1-1h1a7 7 0 0 1 7-7h1V5.73c-.6-.34-1-.99-1-1.73a2 2 0 0 1 2-2z"/></svg>
+                </div>
+                <div class="fd-ai-greeting">Hey, I'm FlowAI</div>
+                <div class="fd-ai-desc">Ask me anything about your notes, your day, or what to focus on next.</div>
+                <div class="fd-ai-chips">
+                  <button class="fd-chip">How's my day?</button>
+                  <button class="fd-chip">What to focus on?</button>
+                  <button class="fd-chip">Add study task</button>
+                  <button class="fd-chip">Start timer</button>
+                  <button class="fd-chip">Explain my notes</button>
+                  <button class="fd-chip">Feeling overwhelmed</button>
+                </div>
+              </div>
+              <div class="fd-ai-input-row">
+                <input class="fd-ai-input" placeholder="Ask FlowAI anything...">
+                <button class="fd-ai-send"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><line x1="22" y1="2" x2="11" y2="13"/><polygon points="22 2 15 22 11 13 2 9 22 2"/></svg></button>
+              </div>
+            </div>
+
+          </div><!-- end fd-main -->
+        </div><!-- end fd-app -->
+      </div><!-- end app-preview-wrapper -->
+    </div>
+  </section>
+
+  <style>
+    /* ── APP PREVIEW WRAPPER ─────────────────────────── */
+    .app-preview-wrapper {
+      max-width: 1000px;
+      margin: 44px auto 0;
+      border-radius: 20px;
+      overflow: hidden;
+      box-shadow:
+        0 0 0 1px rgba(90,60,20,.12),
+        0 8px 40px rgba(26,17,8,.16),
+        0 32px 80px rgba(26,17,8,.1);
+    }
+
+    /* ── CODED APP SHELL ─────────────────────────────── */
+    :root {
+      --fd-paper: #faf5ec;
+      --fd-paper2: #f3ead8;
+      --fd-paper3: #ece0c8;
+      --fd-ink: #1a1108;
+      --fd-ink2: #3d2e1a;
+      --fd-ink3: #7a6040;
+      --fd-ink4: #b89870;
+      --fd-ember: #b8521e;
+      --fd-ember-lt: #d46830;
+      --fd-ember-dim: rgba(184,82,30,.11);
+      --fd-rule: rgba(90,60,20,.1);
+      --fd-dark-bg: #1a1008;
+      --fd-dark-card: #241808;
+      --fd-dark-sidebar: #1e1508;
+    }
+
+    .fd-app {
+      display: flex;
+      height: 540px;
+      background: var(--fd-paper);
+      font-family: 'Plus Jakarta Sans', sans-serif;
+      font-size: 13px;
+      color: var(--fd-ink);
+      position: relative;
+      overflow: hidden;
+    }
+
+    /* SIDEBAR */
+    .fd-sidebar {
+      width: 250px;
+      min-width: 250px;
+      background: var(--fd-paper2);
+      border-right: 1px solid var(--fd-rule);
+      display: flex;
+      flex-direction: column;
+      overflow: hidden;
+      flex-shrink: 0;
+    }
+
+    .fd-sidebar-top {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 14px 16px;
+      border-bottom: 1px solid var(--fd-rule);
+    }
+
+    .fd-logo {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+
+    .fd-logo-icon {
+      width: 28px;
+      height: 28px;
+      background: var(--fd-ember);
+      border-radius: 7px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      flex-shrink: 0;
+    }
+
+    .fd-logo-text {
+      font-family: 'Fraunces', serif;
+      font-style: italic;
+      font-weight: 700;
+      font-size: 17px;
+      letter-spacing: -.02em;
+      color: var(--fd-ink);
+    }
+
+    .fd-sidebar-toggle {
+      background: none;
+      border: none;
+      cursor: pointer;
+      color: var(--fd-ink3);
+      padding: 4px;
+      border-radius: 6px;
+    }
+    .fd-sidebar-toggle:hover { background: var(--fd-paper3); }
+
+    .fd-nav-section {
+      display: flex;
+      align-items: center;
+      gap: 4px;
+      padding: 10px 16px 4px;
+      font-size: 10px;
+      font-weight: 700;
+      color: var(--fd-ink4);
+      letter-spacing: .08em;
+    }
+
+    .fd-nav {
+      display: flex;
+      flex-direction: column;
+      padding: 0 8px;
+      gap: 1px;
+    }
+
+    .fd-nav-item {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      padding: 7px 10px;
+      border-radius: 8px;
+      color: var(--fd-ink2);
+      cursor: pointer;
+      transition: all .15s;
+      font-size: 13px;
+      font-weight: 500;
+      text-decoration: none;
+    }
+
+    .fd-nav-item:hover { background: var(--fd-paper3); }
+    .fd-nav-item.active {
+      background: rgba(184,82,30,.12);
+      color: var(--fd-ember);
+      font-weight: 600;
+    }
+
+    .fd-kbd {
+      margin-left: auto;
+      font-size: 10px;
+      color: var(--fd-ink4);
+      background: var(--fd-paper3);
+      border: 1px solid var(--fd-rule);
+      border-radius: 4px;
+      padding: 1px 5px;
+    }
+
+    .fd-sidebar-bottom {
+      margin-top: auto;
+      border-top: 1px solid var(--fd-rule);
+      padding: 10px 8px;
+    }
+
+    .fd-notif {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      padding: 7px 10px;
+      border-radius: 8px;
+      color: var(--fd-ink2);
+      cursor: pointer;
+      font-size: 13px;
+    }
+    .fd-notif:hover { background: var(--fd-paper3); }
+
+    .fd-user {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      padding: 8px 10px;
+      border-radius: 8px;
+      cursor: pointer;
+    }
+    .fd-user:hover { background: var(--fd-paper3); }
+
+    .fd-user-avatar {
+      width: 30px;
+      height: 30px;
+      border-radius: 8px;
+      background: var(--fd-ember);
+      color: white;
+      font-weight: 700;
+      font-size: 13px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      flex-shrink: 0;
+    }
+
+    .fd-user-info { flex: 1; min-width: 0; }
+    .fd-user-name {
+      font-size: 12px;
+      font-weight: 700;
+      color: var(--fd-ink);
+      display: flex;
+      align-items: center;
+      gap: 5px;
+    }
+
+    .fd-user-badge {
+      font-size: 9px;
+      font-weight: 700;
+      color: var(--fd-ink3);
+      background: var(--fd-paper3);
+      border: 1px solid var(--fd-rule);
+      border-radius: 100px;
+      padding: 1px 6px;
+    }
+
+    .fd-user-email {
+      font-size: 11px;
+      color: var(--fd-ink4);
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+    }
+
+    /* MAIN AREA */
+    .fd-main {
+      flex: 1;
+      display: flex;
+      flex-direction: column;
+      min-width: 0;
+      overflow: hidden;
+      position: relative;
+    }
+
+    .fd-topbar {
+      display: flex;
+      align-items: center;
+      gap: 16px;
+      padding: 0 18px;
+      height: 46px;
+      border-bottom: 1px solid var(--fd-rule);
+      background: var(--fd-paper);
+      flex-shrink: 0;
+    }
+
+    .fd-topbar-logo {
+      flex-shrink: 0;
+      gap: 7px;
+    }
+
+    .fd-top-nav {
+      display: flex;
+      align-items: center;
+      gap: 2px;
+      flex: 1;
+      overflow-x: auto;
+      scrollbar-width: none;
+    }
+    .fd-top-nav::-webkit-scrollbar { display: none; }
+
+    .fd-top-tab {
+      display: inline-flex;
+      align-items: center;
+      gap: 5px;
+      padding: 5px 12px;
+      border: none;
+      border-radius: 8px;
+      background: transparent;
+      font-family: 'Plus Jakarta Sans', sans-serif;
+      font-size: 12px;
+      font-weight: 600;
+      color: var(--fd-ink3);
+      cursor: pointer;
+      white-space: nowrap;
+      transition: all .15s;
+    }
+    .fd-top-tab:hover { background: var(--fd-paper2); color: var(--fd-ink); }
+    .fd-top-tab.active { background: var(--fd-ember-dim); color: var(--fd-ember); }
+    .fd-icon-btn {
+      background: none;
+      border: none;
+      cursor: pointer;
+      color: var(--fd-ink3);
+      padding: 6px;
+      border-radius: 8px;
+      display: flex;
+      align-items: center;
+    }
+    .fd-icon-btn:hover { background: var(--fd-paper2); color: var(--fd-ink); }
+
+    /* VIEWS */
+    .fd-view-container {
+      flex: 1;
+      overflow-y: auto;
+      overflow-x: hidden;
+      position: relative;
+    }
+    .fd-view-container::-webkit-scrollbar { width: 4px; }
+    .fd-view-container::-webkit-scrollbar-track { background: transparent; }
+    .fd-view-container::-webkit-scrollbar-thumb { background: var(--fd-rule); border-radius: 2px; }
+
+    .fd-view {
+      display: none;
+      padding: 28px 28px 24px;
+      animation: fd-fadein .22s ease;
+    }
+    .fd-view.active { display: block; }
+    @keyframes fd-fadein { from { opacity:0; transform:translateY(8px); } to { opacity:1; transform:none; } }
+
+    /* HOME */
+    .fd-page-title {
+      font-family: 'Fraunces', serif;
+      font-size: 32px;
+      font-weight: 800;
+      letter-spacing: -.03em;
+      line-height: 1.15;
+      color: var(--fd-ink);
+      margin-bottom: 4px;
+    }
+
+    .fd-username {
+      font-size: 14px;
+      font-weight: 600;
+      color: var(--fd-ink2);
+      margin-bottom: 2px;
+    }
+
+    .fd-subtitle {
+      font-size: 12px;
+      color: var(--fd-ember);
+      margin-bottom: 20px;
+    }
+
+    .fd-cards-row {
+      display: grid;
+      grid-template-columns: 1fr 1fr 1fr;
+      gap: 10px;
+      margin-bottom: 10px;
+    }
+
+    .fd-cards-row2 {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 10px;
+      margin-bottom: 16px;
+    }
+
+    .fd-card {
+      background: var(--fd-paper);
+      border: 1px solid var(--fd-rule);
+      border-radius: 14px;
+      padding: 16px;
+    }
+    .fd-card-empty { background: transparent; border-color: transparent; }
+
+    .fd-card-label {
+      font-size: 9.5px;
+      font-weight: 700;
+      color: var(--fd-ink4);
+      letter-spacing: .07em;
+      margin-bottom: 12px;
+    }
+
+    /* Ring */
+    .fd-task-completion {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+    }
+
+    .fd-ring-wrap {
+      position: relative;
+      flex-shrink: 0;
+    }
+
+    .fd-ring-label {
+      position: absolute;
+      inset: 0;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      color: var(--fd-ink);
+    }
+
+    .fd-ring-num {
+      font-family: 'Fraunces', serif;
+      font-size: 22px;
+      font-weight: 800;
+      line-height: 1;
+      color: var(--fd-ink);
+    }
+
+    .fd-ring-sub {
+      font-size: 10px;
+      color: var(--fd-ink4);
+      line-height: 1;
+    }
+
+    .fd-ring-progress {
+      animation: fd-ring-in 1.2s cubic-bezier(.22,1,.36,1) forwards;
+    }
+
+    @keyframes fd-ring-in {
+      from { stroke-dashoffset: 213.6; }
+      to { stroke-dashoffset: 0; }
+    }
+
+    .fd-task-done {
+      font-size: 13px;
+      font-weight: 600;
+      color: var(--fd-ink);
+      margin-bottom: 4px;
+    }
+
+    .fd-task-due {
+      font-size: 12px;
+      color: var(--fd-ink3);
+    }
+
+    /* Chart */
+    .fd-chart { }
+    .fd-bars {
+      display: flex;
+      align-items: flex-end;
+      gap: 6px;
+      height: 52px;
+      margin-bottom: 8px;
+    }
+    .fd-bar-col {
+      flex: 1;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      height: 100%;
+      justify-content: flex-end;
+    }
+    .fd-bar {
+      width: 100%;
+      background: var(--fd-ember);
+      border-radius: 4px 4px 0 0;
+      opacity: .7;
+      transition: height .6s cubic-bezier(.22,1,.36,1);
+    }
+    .fd-bar-dark { background: var(--fd-ember-lt); }
+    .fd-bar-day {
+      font-size: 9px;
+      color: var(--fd-ink4);
+      margin-top: 4px;
+    }
+    .fd-dark-day { color: #6a5030; }
+    .fd-chart-note {
+      font-size: 10px;
+      color: var(--fd-ink4);
+    }
+
+    /* Deadlines */
+    .fd-deadline-row {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      margin-bottom: 10px;
+    }
+
+    .fd-overdue-badge {
+      background: #fde8e0;
+      color: #b8521e;
+      font-size: 11px;
+      font-weight: 700;
+      padding: 3px 10px;
+      border-radius: 100px;
+    }
+
+    .fd-upcoming-text {
+      font-size: 12px;
+      color: var(--fd-ink3);
+    }
+
+    .fd-no-deadlines {
+      font-size: 11px;
+      color: var(--fd-ink4);
+    }
+
+    /* Credits */
+    .fd-credits-num {
+      font-family: 'Fraunces', serif;
+      font-size: 28px;
+      font-weight: 800;
+      color: var(--fd-ember);
+      letter-spacing: -.02em;
+      margin-bottom: 2px;
+    }
+    .fd-credits-sub {
+      font-size: 12px;
+      color: var(--fd-ink3);
+      margin-bottom: 8px;
+    }
+    .fd-credits-detail {
+      font-size: 11px;
+      color: var(--fd-ember);
+    }
+
+    /* Quick actions */
+    .fd-quick-actions {
+      display: flex;
+      gap: 8px;
+      flex-wrap: wrap;
+      margin-bottom: 20px;
+    }
+
+    .fd-btn-primary {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      padding: 8px 16px;
+      background: var(--fd-ember);
+      color: white;
+      border: none;
+      border-radius: 100px;
+      font-family: 'Plus Jakarta Sans', sans-serif;
+      font-size: 12px;
+      font-weight: 700;
+      cursor: pointer;
+      transition: all .15s;
+    }
+    .fd-btn-primary:hover { background: var(--fd-ember-lt); transform: translateY(-1px); }
+
+    .fd-btn-ghost {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      padding: 8px 16px;
+      background: var(--fd-paper);
+      color: var(--fd-ink2);
+      border: 1.5px solid var(--fd-rule);
+      border-radius: 100px;
+      font-family: 'Plus Jakarta Sans', sans-serif;
+      font-size: 12px;
+      font-weight: 600;
+      cursor: pointer;
+      transition: all .15s;
+    }
+    .fd-btn-ghost:hover { border-color: var(--fd-ember); color: var(--fd-ember); }
+
+    /* Insights */
+    .fd-insights {
+      border: 1px solid var(--fd-rule);
+      border-radius: 14px;
+      padding: 16px;
+      background: var(--fd-paper);
+    }
+
+    .fd-insights-head {
+      display: flex;
+      align-items: flex-start;
+      justify-content: space-between;
+      margin-bottom: 14px;
+    }
+
+    .fd-insights-title {
+      font-size: 10px;
+      font-weight: 700;
+      color: var(--fd-ink4);
+      letter-spacing: .07em;
+      margin-bottom: 2px;
+    }
+    .fd-insights-sub { font-size: 11px; color: var(--fd-ink3); }
+
+    .fd-free-badge {
+      font-size: 10px;
+      font-weight: 700;
+      color: white;
+      background: var(--fd-ink);
+      padding: 3px 9px;
+      border-radius: 100px;
+    }
+
+    .fd-insight-item {
+      display: flex;
+      gap: 10px;
+      padding: 10px 0;
+      border-top: 1px solid var(--fd-rule);
+      align-items: flex-start;
+    }
+
+    .fd-insight-icon {
+      color: var(--fd-ember);
+      font-size: 14px;
+      flex-shrink: 0;
+      margin-top: 2px;
+    }
+
+    .fd-insight-meta {
+      font-size: 10px;
+      font-weight: 700;
+      color: var(--fd-ink4);
+      letter-spacing: .05em;
+      margin-bottom: 4px;
+      display: flex;
+      align-items: center;
+      gap: 6px;
+    }
+
+    .fd-good-habit {
+      background: #e6f4e9;
+      color: #2d6e3f;
+      font-size: 9px;
+      padding: 2px 7px;
+      border-radius: 100px;
+      font-weight: 700;
+      letter-spacing: .02em;
+    }
+
+    .fd-insight-text {
+      font-size: 12px;
+      font-weight: 600;
+      color: var(--fd-ink);
+      line-height: 1.4;
+    }
+
+    /* CALENDAR */
+    .fd-cal-wrap {
+      display: flex;
+      gap: 20px;
+    }
+
+    .fd-cal-grid {
+      flex: 1;
+      background: var(--fd-paper);
+      border: 1px solid var(--fd-rule);
+      border-radius: 14px;
+      padding: 16px;
+    }
+
+    .fd-cal-header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      margin-bottom: 14px;
+      font-family: 'Fraunces', serif;
+      font-size: 15px;
+      font-weight: 700;
+    }
+
+    .fd-cal-nav {
+      background: none;
+      border: none;
+      cursor: pointer;
+      color: var(--fd-ink3);
+      font-size: 16px;
+      padding: 4px 8px;
+      border-radius: 6px;
+    }
+    .fd-cal-nav:hover { background: var(--fd-paper2); }
+
+    .fd-cal-days-header {
+      display: grid;
+      grid-template-columns: repeat(7, 1fr);
+      margin-bottom: 6px;
+    }
+    .fd-cal-days-header span {
+      text-align: center;
+      font-size: 10px;
+      font-weight: 700;
+      color: var(--fd-ink4);
+      padding: 4px 0;
+    }
+
+    .fd-cal-days {
+      display: grid;
+      grid-template-columns: repeat(7, 1fr);
+      gap: 2px;
+    }
+
+    .fd-cal-day {
+      text-align: center;
+      padding: 6px 2px;
+      font-size: 12px;
+      color: var(--fd-ink2);
+      border-radius: 8px;
+      cursor: pointer;
+      position: relative;
+    }
+    .fd-cal-day:hover { background: var(--fd-paper2); }
+    .fd-cal-other { color: var(--fd-ink4); }
+    .fd-cal-today {
+      background: var(--fd-ember);
+      color: white;
+      font-weight: 700;
+      border-radius: 50%;
+    }
+    .fd-cal-event-day { font-weight: 600; }
+    .fd-event-dot {
+      position: absolute;
+      bottom: 2px;
+      left: 50%;
+      transform: translateX(-50%);
+      width: 4px;
+      height: 4px;
+      border-radius: 50%;
+    }
+
+    .fd-cal-sidebar {
+      width: 160px;
+      background: var(--fd-paper);
+      border: 1px solid var(--fd-rule);
+      border-radius: 14px;
+      padding: 14px;
+    }
+
+    .fd-cal-upcoming-label, .fd-cal-cats-label {
+      font-size: 9.5px;
+      font-weight: 700;
+      letter-spacing: .07em;
+      color: var(--fd-ink4);
+      margin-bottom: 8px;
+    }
+
+    .fd-cal-cats-label { margin-top: 14px; }
+    .fd-cal-nothing { font-size: 11px; color: var(--fd-ink4); }
+
+    .fd-cal-cat {
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      font-size: 12px;
+      color: var(--fd-ink2);
+      padding: 3px 0;
+    }
+
+    .fd-cat-dot {
+      width: 8px;
+      height: 8px;
+      border-radius: 50%;
+      flex-shrink: 0;
+    }
+
+    .fd-cat-count {
+      margin-left: auto;
+      font-size: 11px;
+      color: var(--fd-ink4);
+    }
+
+    /* FLASHCARDS */
+    .fd-flashcard-wrap {
+      max-width: 480px;
+      margin: 0 auto;
+      text-align: center;
+    }
+
+    .fd-flashcard-nav {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      margin-bottom: 16px;
+      padding: 0 8px;
+    }
+
+    .fd-flashcard-title { font-size: 14px; font-weight: 600; color: var(--fd-ink); }
+    .fd-flashcard-count { font-size: 13px; color: var(--fd-ink4); }
+
+    .fd-flashcard {
+      height: 180px;
+      cursor: pointer;
+      perspective: 600px;
+    }
+
+    .fd-flashcard-inner {
+      width: 100%;
+      height: 100%;
+      position: relative;
+      transform-style: preserve-3d;
+      transition: transform .5s cubic-bezier(.22,1,.36,1);
+      border-radius: 18px;
+    }
+
+    .fd-flashcard-inner.flipped {
+      transform: rotateY(180deg);
+    }
+
+    .fd-flashcard-front, .fd-flashcard-back {
+      position: absolute;
+      inset: 0;
+      border-radius: 18px;
+      background: white;
+      border: 1px solid var(--fd-rule);
+      box-shadow: 0 4px 24px rgba(26,17,8,.08);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      padding: 24px;
+      backface-visibility: hidden;
+    }
+
+    .fd-flashcard-back {
+      transform: rotateY(180deg);
+      background: var(--fd-ember-dim);
+    }
+
+    .fd-flashcard-q {
+      font-family: 'Fraunces', serif;
+      font-size: 18px;
+      font-weight: 700;
+      color: var(--fd-ink);
+      line-height: 1.3;
+    }
+
+    .fd-flashcard-hint {
+      font-size: 12px;
+      color: var(--fd-ember);
+      margin-top: 14px;
+    }
+
+    /* TASKS */
+    .fd-tasks-list {
+      display: flex;
+      flex-direction: column;
+      gap: 6px;
+    }
+
+    .fd-task-item {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      padding: 10px 14px;
+      background: var(--fd-paper);
+      border: 1px solid var(--fd-rule);
+      border-radius: 10px;
+    }
+
+    .fd-task-check {
+      width: 18px;
+      height: 18px;
+      border-radius: 5px;
+      border: 1.5px solid var(--fd-rule);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 11px;
+      flex-shrink: 0;
+    }
+    .fd-task-check.done {
+      background: var(--fd-ember);
+      border-color: var(--fd-ember);
+      color: white;
+    }
+
+    .fd-task-label {
+      flex: 1;
+      font-size: 13px;
+      color: var(--fd-ink);
+    }
+    .done-label {
+      text-decoration: line-through;
+      color: var(--fd-ink4);
+    }
+
+    .fd-task-priority {
+      font-size: 10px;
+      font-weight: 700;
+      padding: 2px 8px;
+      border-radius: 100px;
+    }
+    .fd-task-priority.low { background: #e6f4e9; color: #2d6e3f; }
+    .fd-task-priority.med { background: #fef3cd; color: #7a5c00; }
+    .fd-task-priority.high { background: #fde8e0; color: #b8521e; }
+
+    /* TIMER */
+    .fd-timer-card {
+      background: white;
+      border: 1px solid var(--fd-rule);
+      border-radius: 16px;
+      padding: 20px;
+      max-width: 280px;
+      box-shadow: 0 8px 32px rgba(26,17,8,.1);
+    }
+
+    .fd-timer-header {
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      font-size: 10px;
+      font-weight: 700;
+      letter-spacing: .08em;
+      color: var(--fd-ink4);
+      margin-bottom: 14px;
+      border-bottom: 1px solid var(--fd-rule);
+      padding-bottom: 10px;
+    }
+
+    .fd-timer-time {
+      font-family: 'Fraunces', serif;
+      font-size: 44px;
+      font-weight: 800;
+      color: var(--fd-ember);
+      text-align: center;
+      margin-bottom: 14px;
+      letter-spacing: -.02em;
+    }
+
+    .fd-timer-controls {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 10px;
+      margin-bottom: 12px;
+    }
+
+    .fd-timer-ctrl {
+      background: none;
+      border: none;
+      font-size: 16px;
+      cursor: pointer;
+      color: var(--fd-ink3);
+      padding: 6px;
+      border-radius: 8px;
+    }
+    .fd-timer-ctrl:hover { background: var(--fd-paper2); }
+
+    .fd-timer-start {
+      background: var(--fd-ember);
+      color: white;
+      border: none;
+      border-radius: 100px;
+      padding: 8px 22px;
+      font-family: 'Plus Jakarta Sans', sans-serif;
+      font-size: 13px;
+      font-weight: 700;
+      cursor: pointer;
+    }
+    .fd-timer-start.running { background: #d46830; }
+    .fd-timer-start:hover { background: var(--fd-ember-lt); }
+
+    .fd-timer-dots {
+      display: flex;
+      justify-content: center;
+      gap: 6px;
+      margin-bottom: 14px;
+    }
+    .fd-tdot {
+      width: 8px;
+      height: 8px;
+      border-radius: 50%;
+      background: var(--fd-rule);
+    }
+    .fd-tdot.active { background: var(--fd-ember); }
+
+    .fd-timer-settings {
+      display: flex;
+      flex-direction: column;
+      gap: 6px;
+      margin-bottom: 14px;
+    }
+
+    .fd-timer-setting {
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      font-size: 11px;
+      font-weight: 700;
+      color: var(--fd-ink4);
+      letter-spacing: .06em;
+    }
+
+    .fd-ts-btn {
+      background: none;
+      border: 1px solid var(--fd-rule);
+      border-radius: 50%;
+      width: 20px;
+      height: 20px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      cursor: pointer;
+      font-size: 13px;
+      color: var(--fd-ink3);
+    }
+
+    .fd-spotify-btn {
+      width: 100%;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 6px;
+      padding: 8px 16px;
+      background: #1db954;
+      color: white;
+      border: none;
+      border-radius: 100px;
+      font-size: 12px;
+      font-weight: 700;
+      cursor: pointer;
+    }
+
+    /* SEARCH */
+    .fd-search-overlay {
+      background: white;
+      border: 1px solid var(--fd-rule);
+      border-radius: 16px;
+      overflow: hidden;
+      box-shadow: 0 12px 48px rgba(26,17,8,.14);
+      max-width: 520px;
+      margin: 20px auto;
+    }
+
+    .fd-search-box {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      padding: 14px 16px;
+      border-bottom: 1px solid var(--fd-rule);
+    }
+
+    .fd-search-input {
+      flex: 1;
+      border: none;
+      outline: none;
+      font-family: 'Plus Jakarta Sans', sans-serif;
+      font-size: 14px;
+      color: var(--fd-ink);
+      background: transparent;
+    }
+
+    .fd-search-close {
+      color: var(--fd-ink4);
+      cursor: pointer;
+      font-size: 18px;
+    }
+
+    .fd-search-tabs {
+      display: flex;
+      gap: 4px;
+      padding: 10px 14px 0;
+    }
+
+    .fd-stab {
+      padding: 5px 14px;
+      border: none;
+      border-radius: 100px;
+      font-family: 'Plus Jakarta Sans', sans-serif;
+      font-size: 12px;
+      font-weight: 600;
+      cursor: pointer;
+      background: transparent;
+      color: var(--fd-ink3);
+    }
+    .fd-stab.active {
+      background: var(--fd-ember);
+      color: white;
+    }
+
+    .fd-search-results { padding: 8px 0 8px; }
+
+    .fd-search-item {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      padding: 8px 16px;
+      cursor: pointer;
+      color: var(--fd-ink2);
+    }
+    .fd-search-item:hover { background: var(--fd-paper2); }
+    .fd-search-item span:nth-child(2) { flex: 1; font-size: 13px; }
+    .fd-si-type {
+      font-size: 11px;
+      color: var(--fd-ink4);
+      flex: none !important;
+    }
+
+    .fd-search-divider {
+      padding: 6px 16px 4px;
+      font-size: 10px;
+      font-weight: 700;
+      letter-spacing: .07em;
+      color: var(--fd-ink4);
+    }
+
+    /* DARK VIEW */
+    .fd-dark-view {
+      background: #1a1008;
+      min-height: 100%;
+    }
+    .fd-dark-title { color: #e8cba0; }
+    .fd-dark-username { color: #e8cba0; }
+    .fd-dark-subtitle { color: #d46830; }
+    .fd-dark-cards { }
+    .fd-dark-card {
+      background: #241808;
+      border-color: rgba(255,255,255,.06);
+    }
+    .fd-dark-label { color: #6a5030; }
+
+    /* AI BUBBLE */
+    .fd-ai-bubble {
+      position: absolute;
+      bottom: 16px;
+      right: 16px;
+      width: 44px;
+      height: 44px;
+      background: var(--fd-ember);
+      border-radius: 50%;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      cursor: pointer;
+      box-shadow: 0 4px 16px rgba(184,82,30,.4);
+      z-index: 10;
+      transition: transform .2s;
+    }
+    .fd-ai-bubble:hover { transform: scale(1.1); }
+
+    .fd-ai-online {
+      position: absolute;
+      top: 2px;
+      right: 2px;
+      width: 10px;
+      height: 10px;
+      background: #22c55e;
+      border: 2px solid white;
+      border-radius: 50%;
+    }
+
+    /* AI PANEL */
+    .fd-ai-panel {
+      position: absolute;
+      right: 12px;
+      bottom: 68px;
+      width: 340px;
+      background: var(--fd-paper);
+      border: 1px solid var(--fd-rule);
+      border-radius: 18px;
+      box-shadow: 0 8px 40px rgba(26,17,8,.18);
+      z-index: 20;
+      display: none;
+      flex-direction: column;
+      overflow: hidden;
+      max-height: 420px;
+    }
+    .fd-ai-panel.visible { display: flex; }
+
+    .fd-ai-panel-head {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      padding: 12px 14px;
+      border-bottom: 1px solid var(--fd-rule);
+    }
+
+    .fd-ai-panel-logo {
+      width: 26px;
+      height: 26px;
+      background: var(--fd-ember);
+      border-radius: 8px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      flex-shrink: 0;
+    }
+
+    .fd-ai-tabs {
+      display: flex;
+      padding: 8px 8px 0;
+      gap: 2px;
+      border-bottom: 1px solid var(--fd-rule);
+    }
+
+    .fd-ai-tab {
+      flex: 1;
+      padding: 7px 4px;
+      font-family: 'Plus Jakarta Sans', sans-serif;
+      font-size: 11px;
+      font-weight: 600;
+      background: none;
+      border: none;
+      border-radius: 8px 8px 0 0;
+      cursor: pointer;
+      color: var(--fd-ink3);
+    }
+    .fd-ai-tab.active {
+      color: var(--fd-ember);
+      border-bottom: 2px solid var(--fd-ember);
+    }
+
+    .fd-ai-body {
+      flex: 1;
+      padding: 20px 16px 12px;
+      text-align: center;
+      overflow-y: auto;
+    }
+
+    .fd-ai-logo-big {
+      width: 52px;
+      height: 52px;
+      background: var(--fd-ember);
+      border-radius: 50%;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      margin: 0 auto 12px;
+    }
+
+    .fd-ai-greeting {
+      font-family: 'Fraunces', serif;
+      font-size: 18px;
+      font-weight: 800;
+      color: var(--fd-ink);
+      margin-bottom: 6px;
+    }
+
+    .fd-ai-desc {
+      font-size: 12px;
+      color: var(--fd-ink3);
+      margin-bottom: 14px;
+      line-height: 1.5;
+    }
+
+    .fd-ai-chips {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 6px;
+      justify-content: center;
+    }
+
+    .fd-chip {
+      padding: 5px 12px;
+      background: var(--fd-paper2);
+      border: 1px solid var(--fd-rule);
+      border-radius: 100px;
+      font-family: 'Plus Jakarta Sans', sans-serif;
+      font-size: 11px;
+      font-weight: 600;
+      color: var(--fd-ink2);
+      cursor: pointer;
+    }
+    .fd-chip:hover { border-color: var(--fd-ember); color: var(--fd-ember); }
+
+    .fd-ai-input-row {
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      padding: 10px 12px;
+      border-top: 1px solid var(--fd-rule);
+    }
+
+    .fd-ai-input {
+      flex: 1;
+      border: 1.5px solid var(--fd-rule);
+      border-radius: 100px;
+      padding: 7px 14px;
+      font-family: 'Plus Jakarta Sans', sans-serif;
+      font-size: 12px;
+      outline: none;
+      background: var(--fd-paper2);
+      color: var(--fd-ink);
+    }
+    .fd-ai-input:focus { border-color: var(--fd-ember); }
+
+    .fd-ai-send {
+      width: 32px;
+      height: 32px;
+      background: var(--fd-ember);
+      color: white;
+      border: none;
+      border-radius: 50%;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      cursor: pointer;
+      font-size: 13px;
+    }
+  </style>
+
+  <script>
+    var currentView = 'home';
+    var timerInterval = null;
+    var timerSeconds = 25 * 60;
+    var timerRunning = false;
+
+    function switchView(v) {
+      if (v === 'ai') {
+        var panel = document.getElementById('fd-ai-panel');
+        panel.classList.toggle('visible');
+        return;
+      }
+
+      document.querySelectorAll('.fd-view').forEach(function(el) { el.classList.remove('active'); });
+      var el = document.getElementById('view-' + v);
+      if (el) { el.classList.add('active'); }
+
+      // Update top tab active state
+      document.querySelectorAll('.fd-top-tab').forEach(function(t) { t.classList.remove('active'); });
+      var tabEl = document.getElementById('tab-' + v);
+      if (tabEl) { tabEl.classList.add('active'); }
+
+      // Toggle dark mode
+      var app = document.getElementById('fd-app');
+      var topbar = document.querySelector('.fd-topbar');
+      if (v === 'dark') {
+        app.style.background = '#1a1008';
+        topbar.style.background = '#1e1508';
+        topbar.style.borderColor = 'rgba(255,255,255,.06)';
+        document.querySelector('.fd-logo-text').style.color = '#e8cba0';
+      } else {
+        app.style.background = '';
+        topbar.style.background = '';
+        topbar.style.borderColor = '';
+        document.querySelector('.fd-logo-text').style.color = '';
+      }
+
+      currentView = v;
+      document.getElementById('fd-ai-panel').classList.remove('visible');
+    }
+
+    function flipCard() {
+      document.getElementById('fd-flashcard-inner').classList.toggle('flipped');
+    }
+
+    function toggleTimer() {
+      timerRunning = !timerRunning;
+      var btn = document.getElementById('fd-timer-btn');
+      if (timerRunning) {
+        btn.innerHTML = '<svg width="12" height="12" viewBox="0 0 24 24" fill="currentColor" stroke="none"><rect x="6" y="4" width="4" height="16"/><rect x="14" y="4" width="4" height="16"/></svg> Pause';
+        btn.classList.add('running');
+        timerInterval = setInterval(function() {
+          if (timerSeconds > 0) {
+            timerSeconds--;
+            var m = Math.floor(timerSeconds / 60).toString().padStart(2, '0');
+            var s = (timerSeconds % 60).toString().padStart(2, '0');
+            document.getElementById('fd-timer-display').textContent = m + ':' + s;
+          } else {
+            clearInterval(timerInterval);
+            timerRunning = false;
+            btn.innerHTML = '<svg width="12" height="12" viewBox="0 0 24 24" fill="currentColor" stroke="none"><polygon points="5 3 19 12 5 21 5 3"/></svg> Start';
+            btn.classList.remove('running');
+          }
+        }, 1000);
+      } else {
+        clearInterval(timerInterval);
+        btn.innerHTML = '<svg width="12" height="12" viewBox="0 0 24 24" fill="currentColor" stroke="none"><polygon points="5 3 19 12 5 21 5 3"/></svg> Start';
+        btn.classList.remove('running');
+      }
+    }
+
+    function resetTimer() {
+      clearInterval(timerInterval);
+      timerRunning = false;
+      timerSeconds = 25 * 60;
+      document.getElementById('fd-timer-display').textContent = '25:00';
+      var btn = document.getElementById('fd-timer-btn');
+      if (btn) { btn.innerHTML = '<svg width="12" height="12" viewBox="0 0 24 24" fill="currentColor" stroke="none"><polygon points="5 3 19 12 5 21 5 3"/></svg> Start'; btn.classList.remove('running'); }
+    }
+
+    function toggleSidebar() {
+      var sb = document.querySelector('.fd-sidebar');
+      sb.style.width = sb.style.width === '0px' ? '250px' : '0px';
+      sb.style.minWidth = sb.style.minWidth === '0px' ? '250px' : '0px';
+    }
+  </script>
+
+  <!-- ══════════════════════════════════════════════════
+       BENTO GRID - LESS IMPORTANT FEATURES
+  ══════════════════════════════════════════════════ -->
+  <section class="bento-section" id="features">
+    <div class="bento-header sr">
+      <div class="sec-eyebrow">All in one place</div>
+      <h2 class="sec-h">Everything you were<br>using <em>five apps</em> for</h2>
+    </div>
+
+    <div class="bento-grid">
+      <!-- Pomodoro Timer -->
+      <div class="bento-card sr" onclick="toggleBentoCard(this)">
+        <div class="bento-icon">
+          <svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="var(--ember)" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <circle cx="12" cy="12" r="10"/>
+            <polyline points="12 6 12 12 16 14"/>
+          </svg>
+        </div>
+        <h3 class="bento-title">Focus Timer</h3>
+        <p class="bento-desc">25 minutes on, 5 off. The classic formula — but with Spotify built in so you can finally stop alt-tabbing.</p>
+        <div class="bento-tags">
+          <span class="bento-tag">Pomodoro</span>
+          <span class="bento-tag">Spotify connect</span>
+        </div>
+        <div class="bento-expand">
+          <div class="bento-demo">
+            <img src="assets/images/TImer.png" alt="Pomodoro Timer" style="width:100%;display:block;border-radius:12px;">
+          </div>
+        </div>
+      </div>
+
+      <!-- Study Groups -->
+      <div class="bento-card sr d1" onclick="toggleBentoCard(this)">
+        <div class="bento-icon">
+          <svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="var(--ember)" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/>
+            <circle cx="9" cy="7" r="4"/>
+            <path d="M23 21v-2a4 4 0 0 0-3-3.87"/>
+            <path d="M16 3.13a4 4 0 0 1 0 7.75"/>
+          </svg>
+        </div>
+        <h3 class="bento-title">Study Groups</h3>
+        <p class="bento-desc">Share a code, your friends join, and suddenly your notes aren't just yours. Real-time collab the way it should work.</p>
+        <div class="bento-tags">
+          <span class="bento-tag">Live sharing</span>
+          <span class="bento-tag">Join by code</span>
+        </div>
+        <div class="bento-expand">
+          <div class="bento-demo">
+            <img src="assets/images/StudyGroups.png" alt="Study Groups" style="width:100%;display:block;border-radius:12px;">
+          </div>
+        </div>
+      </div>
+
+      <!-- Progress Tracking -->
+      <div class="bento-card sr d2" onclick="toggleBentoCard(this)">
+        <div class="bento-icon">
+          <svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="var(--ember)" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <polyline points="22 12 18 12 15 21 9 3 6 12 2 12"/>
+          </svg>
+        </div>
+        <h3 class="bento-title">Your study stats</h3>
+        <p class="bento-desc">Streaks, focus hours, cards reviewed. Not to pressure you — just so you can actually see how far you've come.</p>
+        <div class="bento-tags">
+          <span class="bento-tag">Streaks</span>
+          <span class="bento-tag">Weekly insights</span>
+        </div>
+        <div class="bento-expand">
+          <div class="bento-demo">
+            <img src="assets/images/Stats.png" alt="Progress Tracking" style="width:100%;display:block;border-radius:12px;">
+          </div>
+        </div>
+      </div>
+
+      <!-- Quick Search -->
+      <div class="bento-card sr" onclick="toggleBentoCard(this)">
+        <div class="bento-icon">
+          <svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="var(--ember)" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <circle cx="11" cy="11" r="8"/>
+            <path d="m21 21-4.35-4.35"/>
+          </svg>
+        </div>
+        <h3 class="bento-title">⌘K for everything</h3>
+        <p class="bento-desc">One shortcut to find any note, task, flashcard, or page. No more forgetting where you saved that thing.</p>
+        <div class="bento-tags">
+          <span class="bento-tag">Instant search</span>
+          <span class="bento-tag">Keyboard first</span>
+        </div>
+        <div class="bento-expand">
+          <div class="bento-demo">
+            <img src="assets/images/Search.png" alt="Quick Search" style="width:100%;display:block;border-radius:12px;">
+          </div>
+        </div>
+      </div>
+
+      <!-- Dark Mode -->
+      <div class="bento-card sr d1" onclick="toggleBentoCard(this)">
+        <div class="bento-icon">
+          <svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="var(--ember)" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"/>
+          </svg>
+        </div>
+        <h3 class="bento-title">Dark mode that's warm</h3>
+        <p class="bento-desc">Not a harsh black-and-white toggle. Both themes use rich, warm tones designed to feel like a cozy lamp, not a monitor.</p>
+        <div class="bento-tags">
+          <span class="bento-tag">Warm dark</span>
+          <span class="bento-tag">Easy on the eyes</span>
+        </div>
+        <div class="bento-expand">
+          <div class="bento-demo">
+            <img src="assets/images/DarkMode.png" alt="Dark Mode" style="width:100%;display:block;border-radius:12px;">
+          </div>
+        </div>
+      </div>
+
+      <!-- Works Everywhere -->
+      <div class="bento-card sr d2" onclick="toggleBentoCard(this)">
+        <div class="bento-icon">
+          <svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="var(--ember)" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <rect x="5" y="2" width="14" height="20" rx="2" ry="2"/>
+            <line x1="12" y1="18" x2="12.01" y2="18"/>
+          </svg>
+        </div>
+        <h3 class="bento-title">Phone, laptop, library</h3>
+        <p class="bento-desc">Reviewing notes between classes on your phone. Writing on your laptop at home. It all syncs. It all looks good.</p>
+        <div class="bento-tags">
+          <span class="bento-tag">Responsive</span>
+          <span class="bento-tag">Always in sync</span>
+        </div>
+        <div class="bento-expand">
+          <div class="bento-demo">
+            <img src="assets/images/Dashboard.png" alt="Works Everywhere" style="width:100%;display:block;border-radius:12px;">
+          </div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ══════════════════════════════════════════════════
+       MANIFESTO STRIP
+  ══════════════════════════════════════════════════ -->
+  <section class="manifesto-section">
+    <div class="manifesto-inner sr">
+      <div class="manifesto-quote">
+        "Most study apps are built like dashboards. Axinote is built like a <em>desk</em> — the one with your mug, your sticky notes, and everything you actually need within arm's reach."
+      </div>
+      <div class="manifesto-attr">— why we built this</div>
+    </div>
+  </section>
+
+  <!-- ══════════════════════════════════════════════════
+       FLOWAI — BIG DEEP SECTION
+  ══════════════════════════════════════════════════ -->
+  <section class="flowai-section" id="flowai">
+    <div class="flowai-header sr">
+      <div class="sec-eyebrow">Meet FlowAI</div>
+      <h2 class="sec-h flowai-h">Not a chatbot.<br>An <em>AI that knows you.</em></h2>
+      <p class="flowai-intro">FlowAI lives inside your workspace, so it actually knows your notes, your tasks, your schedule, and how you're doing. It's not just a chat window — it's a study partner with context.</p>
+    </div>
+
+    <!-- Two modes -->
+    <div class="flowai-modes sr">
+      <div class="flowai-mode-card flowai-mode-study">
+        <div class="flowai-mode-icon">
+          <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M12 2a2 2 0 0 1 2 2c0 .74-.4 1.39-1 1.73V7h1a7 7 0 0 1 7 7h1a1 1 0 0 1 1 1v3a1 1 0 0 1-1 1h-1v1a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-1H2a1 1 0 0 1-1-1v-3a1 1 0 0 1 1-1h1a7 7 0 0 1 7-7h1V5.73c-.6-.34-1-.99-1-1.73a2 2 0 0 1 2-2z"/></svg>
+        </div>
+        <div class="flowai-mode-tag">Study Assistant</div>
+        <h3 class="flowai-mode-title">Your on-demand tutor</h3>
+        <p class="flowai-mode-desc">Ask it to explain concepts, quiz you from your own notes, generate a study plan from your calendar, or summarise a PDF you uploaded. It reads your materials so you don't have to start from scratch.</p>
+        <div class="flowai-prompts">
+          <span class="flowai-prompt">"Make flashcards from my Chapter 4 notes"</span>
+          <span class="flowai-prompt">"What's due this week?"</span>
+          <span class="flowai-prompt">"Explain this concept in simple terms"</span>
+          <span class="flowai-prompt">"Start a 25-min focus session on Calculus"</span>
+          <span class="flowai-prompt">"Summarise this PDF"</span>
+          <span class="flowai-prompt">"I have 3 exams next week, help me plan"</span>
+        </div>
+      </div>
+
+      <div class="flowai-mode-card flowai-mode-therapist">
+        <div class="flowai-mode-icon flowai-mode-icon-heart">
+          <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M20.84 4.61a5.5 5.5 0 0 0-7.78 0L12 5.67l-1.06-1.06a5.5 5.5 0 0 0-7.78 7.78l1.06 1.06L12 21.23l7.78-7.78 1.06-1.06a5.5 5.5 0 0 0 0-7.78z"/></svg>
+        </div>
+        <div class="flowai-mode-tag flowai-mode-tag-heart">Therapist Mode</div>
+        <h3 class="flowai-mode-title">When studying feels impossible</h3>
+        <p class="flowai-mode-desc">Sometimes you don't need a to-do list. You need someone to say "hey, you're doing okay." Therapist Mode is a gentler space — no tasks, no pressure. Just a calm voice when you're overwhelmed.</p>
+        <div class="flowai-prompts flowai-prompts-heart">
+          <span class="flowai-prompt flowai-prompt-heart">"I feel overwhelmed and don't know where to start"</span>
+          <span class="flowai-prompt flowai-prompt-heart">"I've been procrastinating all week"</span>
+          <span class="flowai-prompt flowai-prompt-heart">"I'm anxious about my exam tomorrow"</span>
+          <span class="flowai-prompt flowai-prompt-heart">"I just need a break but feel guilty"</span>
+        </div>
+      </div>
+    </div>
+
+    <!-- FlowAI capabilities grid -->
+    <div class="flowai-caps sr d1">
+      <div class="flowai-cap">
+        <div class="flowai-cap-icon"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="var(--ember)" stroke-width="1.8" stroke-linecap="round"><path d="M2 3h6a4 4 0 0 1 4 4v14a3 3 0 0 0-3-3H2z"/><path d="M22 3h-6a4 4 0 0 0-4 4v14a3 3 0 0 1 3-3h7z"/></svg></div>
+        <div class="flowai-cap-title">Reads your notes</div>
+        <div class="flowai-cap-desc">FlowAI has context on everything in your workspace — notes, PDFs, tasks — so answers are specific to you, not generic.</div>
+      </div>
+      <div class="flowai-cap">
+        <div class="flowai-cap-icon"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="var(--ember)" stroke-width="1.8" stroke-linecap="round"><rect x="2" y="7" width="20" height="14" rx="2"/><path d="M16 21V5a2 2 0 0 0-2-2h-4a2 2 0 0 0-2 2v16"/></svg></div>
+        <div class="flowai-cap-title">Generates flashcards</div>
+        <div class="flowai-cap-desc">Paste in your lecture notes or highlight a PDF paragraph and FlowAI turns it into a ready-to-review flashcard deck in seconds.</div>
+      </div>
+      <div class="flowai-cap">
+        <div class="flowai-cap-icon"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="var(--ember)" stroke-width="1.8" stroke-linecap="round"><rect x="3" y="4" width="18" height="18" rx="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg></div>
+        <div class="flowai-cap-title">Knows your calendar</div>
+        <div class="flowai-cap-desc">It sees your deadlines, events, and overdue items. Ask "what should I focus on today?" and get a real answer, not a template.</div>
+      </div>
+      <div class="flowai-cap">
+        <div class="flowai-cap-icon"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="var(--ember)" stroke-width="1.8" stroke-linecap="round"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/></svg></div>
+        <div class="flowai-cap-title">Helps you write</div>
+        <div class="flowai-cap-desc">Drafting an essay outline, cleaning up messy notes, or restructuring a paragraph — FlowAI's Write mode is your editing co-pilot.</div>
+      </div>
+      <div class="flowai-cap">
+        <div class="flowai-cap-icon"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="var(--ember)" stroke-width="1.8" stroke-linecap="round"><line x1="8" y1="6" x2="21" y2="6"/><line x1="8" y1="12" x2="21" y2="12"/><line x1="8" y1="18" x2="21" y2="18"/><line x1="3" y1="6" x2="3.01" y2="6"/><line x1="3" y1="12" x2="3.01" y2="12"/><line x1="3" y1="18" x2="3.01" y2="18"/></svg></div>
+        <div class="flowai-cap-title">Organises for you</div>
+        <div class="flowai-cap-desc">Ask it to sort your notes into folders, tag your tasks by subject, or create a project from scratch. It does the admin so you don't have to.</div>
+      </div>
+      <div class="flowai-cap">
+        <div class="flowai-cap-icon"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="var(--ember)" stroke-width="1.8" stroke-linecap="round"><path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9"/><path d="M13.73 21a2 2 0 0 1-3.46 0"/></svg></div>
+        <div class="flowai-cap-title">Checks in on you</div>
+        <div class="flowai-cap-desc">FlowAI notices when you haven't studied in a few days, when a deadline is creeping up, and nudges you — gently, not annoyingly.</div>
+      </div>
+    </div>
+
+    <div class="flowai-screenshot-wrap sr d2">
+      <div class="feature-screenshot-wrap" style="max-width:860px;margin:0 auto;">
+        <img src="assets/images/FlowAI.png" alt="FlowAI Assistant" class="feature-screenshot">
+      </div>
+    </div>
+  </section>
+
+  <!-- ══════════════════════════════════════════════════
+       FEATURE 2: Notes & Flashcards
+  ══════════════════════════════════════════════════ -->
+  <section class="feature-section">
+    <div class="feature-container reverse">
+      <div class="feature-content sr">
+        <div class="feature-badge">Study Tools</div>
+        <h2 class="feature-h">Write notes. <em>Then actually learn</em> from them.</h2>
+        <p class="feature-p">Most notes get written and never looked at again. Axinote closes that loop — highlight anything, flip it into a flashcard, and your own words come back to quiz you. Spaced repetition remembers when to resurface them so you don't have to think about it.</p>
+        <ul class="feature-list">
+          <li>Rich markdown editor — headings, lists, code blocks, the works</li>
+          <li>One-click convert: note → flashcard deck</li>
+          <li>Spaced repetition that adapts to how well you know each card</li>
+          <li>FlowAI can quiz you from your own notes mid-session</li>
+        </ul>
+      </div>
+      <div class="feature-video sr d1">
+        <div class="feature-screenshot-wrap">
+          <img src="assets/images/Flashcards.png" alt="Flashcards" class="feature-screenshot">
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ══════════════════════════════════════════════════
+       FEATURE 3: PDF Annotator
+  ══════════════════════════════════════════════════ -->
+  <section class="feature-section">
+    <div class="feature-container">
+      <div class="feature-content sr">
+        <div class="feature-badge">PDF Tools</div>
+        <h2 class="feature-h">Your textbook, <em>but interactive</em></h2>
+        <p class="feature-p">Stop switching between a PDF reader, a notes app, and a highlighter. Drop your lecture slides or textbook into Axinote, annotate right there, and ask FlowAI to explain anything you've underlined. Everything you pull from that PDF stays linked to the source.</p>
+        <ul class="feature-list">
+          <li>Drag-in any PDF — slides, papers, past exams</li>
+          <li>Highlight and annotate without leaving your workspace</li>
+          <li>Turn highlighted passages into flashcards instantly</li>
+          <li>Ask FlowAI "explain this diagram" right inside the page</li>
+        </ul>
+      </div>
+      <div class="feature-video sr d1">
+        <div class="feature-screenshot-wrap">
+          <img src="assets/images/PDFEditing.png" alt="PDF Annotation" class="feature-screenshot">
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ══════════════════════════════════════════════════
+       FEATURE 4: Tasks & Calendar
+  ══════════════════════════════════════════════════ -->
+  <section class="feature-section">
+    <div class="feature-container reverse">
+      <div class="feature-content sr">
+        <div class="feature-badge">Stay organised</div>
+        <h2 class="feature-h">Deadlines that <em>don't sneak up</em> on you</h2>
+        <p class="feature-p">Your tasks know about your calendar events. Your calendar knows about your due dates. FlowAI looks at both and tells you what actually matters today — so you're not making that decision yourself at 11pm.</p>
+        <ul class="feature-list">
+          <li>Tasks with priority, due dates, and subject tags</li>
+          <li>A calendar that shows tasks and events together</li>
+          <li>Deadline Risk score — know before it's too late</li>
+          <li>"What's overdue?" — just ask FlowAI</li>
+        </ul>
+      </div>
+      <div class="feature-video sr d1">
+        <div class="feature-screenshot-wrap">
+          <img src="assets/images/Calendar.png" alt="Tasks and Calendar" class="feature-screenshot">
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ══════════════════════════════════════════════════
+       EXAM ADVANTAGE — ELITE FEATURE
+  ══════════════════════════════════════════════════ -->
+  <section class="elite-section">
+    <div class="elite-header sr">
+      <div class="elite-eyebrow">
+        <span class="elite-badge">
+          <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"/></svg>
+          Elite only
+        </span>
+        <span class="elite-label">Exam Advantage System</span>
+      </div>
+      <h2 class="sec-h elite-h">Your personal <em>exam strategist.</em><br>Not just a study tracker.</h2>
+      <p class="elite-intro">Most tools tell you <em>what</em> to study. Exam Advantage tells you <em>how</em> — based on your actual sleep patterns, focus style, learning type, and stress levels. It builds a profile of how you perform, then optimises everything around it.</p>
+    </div>
+
+    <div class="elite-layout sr d1">
+      <!-- Left: actual screenshot -->
+      <div class="elite-screenshot-wrap">
+        <img src="assets/images/EliteDNAFeature.png" alt="Exam Advantage — Study DNA" class="elite-screenshot">
+      </div>
+      <!-- Right: feature list -->
+      <div class="elite-features-col">
+        <div class="elite-feature-item sr">
+          <div class="elite-feature-icon">
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M20.84 4.61a5.5 5.5 0 0 0-7.78 0L12 5.67l-1.06-1.06a5.5 5.5 0 0 0-7.78 7.78l1.06 1.06L12 21.23l7.78-7.78 1.06-1.06a5.5 5.5 0 0 0 0-7.78z"/></svg>
+          </div>
+          <div>
+            <div class="elite-feature-title">Study DNA Profile</div>
+            <div class="elite-feature-desc">Answer a short quiz once. FlowAI builds a deep profile of your learning style, chronotype, stress triggers, and focus span — then uses it to personalise everything.</div>
+          </div>
+        </div>
+        <div class="elite-feature-item sr d1">
+          <div class="elite-feature-icon">
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>
+          </div>
+          <div>
+            <div class="elite-feature-title">Optimal session timing</div>
+            <div class="elite-feature-desc">Based on your natural focus window, Exam Advantage recommends when to study, how long each session should run, and how hard to push before diminishing returns kick in.</div>
+          </div>
+        </div>
+        <div class="elite-feature-item sr d2">
+          <div class="elite-feature-icon">
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><polyline points="22 12 18 12 15 21 9 3 6 12 2 12"/></svg>
+          </div>
+          <div>
+            <div class="elite-feature-title">Live stress & sleep tracking</div>
+            <div class="elite-feature-desc">Tell FlowAI how you slept. It adjusts your plan — knowing that a 6h night means lighter recall work today, not a full study sprint.</div>
+          </div>
+        </div>
+        <div class="elite-feature-item sr d3">
+          <div class="elite-feature-icon">
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/><polyline points="10 9 9 9 8 9"/></svg>
+          </div>
+          <div>
+            <div class="elite-feature-title">Mock exams + weak spot analysis</div>
+            <div class="elite-feature-desc">Practice under real exam conditions, then get a breakdown of exactly which topics cost you points — and a targeted revision plan to close the gaps before the real thing.</div>
+          </div>
+        </div>
+
+        <a href="pricing.html" class="elite-cta-btn sr d4">
+          Unlock Exam Advantage
+          <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><path d="M5 12h14"/><path d="m12 5 7 7-7 7"/></svg>
+        </a>
+        <p class="elite-cta-note sr d4">Available on Elite plan · from $9/mo</p>
+      </div>
+    </div>
+  </section>
+
+  <style>
+    /* ── ELITE SECTION ───────────────────────────────── */
+    .elite-section {
+      padding: 90px 52px;
+      background: linear-gradient(160deg, #1a1108 0%, #241808 60%, #1a1108 100%);
+      position: relative;
+      z-index: 1;
+      overflow: hidden;
+    }
+
+    .elite-section::before {
+      content: '';
+      position: absolute;
+      top: -120px;
+      right: -120px;
+      width: 400px;
+      height: 400px;
+      background: radial-gradient(circle, rgba(184,82,30,.18) 0%, transparent 70%);
+      pointer-events: none;
+    }
+
+    .elite-header {
+      max-width: 780px;
+      margin: 0 auto 52px;
+      text-align: center;
+    }
+
+    .elite-eyebrow {
+      display: inline-flex;
+      align-items: center;
+      gap: 10px;
+      margin-bottom: 20px;
+    }
+
+    .elite-badge {
+      display: inline-flex;
+      align-items: center;
+      gap: 5px;
+      background: linear-gradient(135deg, #b8521e, #d46830);
+      color: white;
+      font-size: 11px;
+      font-weight: 800;
+      padding: 4px 12px;
+      border-radius: 100px;
+      letter-spacing: .06em;
+      text-transform: uppercase;
+      box-shadow: 0 2px 12px rgba(184,82,30,.5);
+    }
+
+    .elite-label {
+      font-size: 12px;
+      font-weight: 700;
+      color: rgba(212,104,48,.8);
+      letter-spacing: .1em;
+      text-transform: uppercase;
+    }
+
+    .elite-h {
+      color: #f0e0c8 !important;
+      font-size: 46px !important;
+    }
+
+    .elite-h em {
+      color: var(--ember-lt) !important;
+    }
+
+    .elite-intro {
+      font-size: 16px;
+      line-height: 1.7;
+      color: rgba(212,180,140,.75);
+      margin-top: 18px;
+    }
+
+    .elite-intro em {
+      color: #e8c89a;
+      font-style: normal;
+      font-weight: 600;
+    }
+
+    .elite-layout {
+      max-width: 1100px;
+      margin: 0 auto;
+      display: grid;
+      grid-template-columns: 1.1fr 1fr;
+      gap: 40px;
+      align-items: start;
+    }
+
+    /* Screenshot */
+    .elite-screenshot-wrap {
+      border-radius: 16px;
+      overflow: hidden;
+      box-shadow:
+        0 0 0 1px rgba(255,255,255,.07),
+        0 12px 48px rgba(0,0,0,.5),
+        0 2px 8px rgba(184,82,30,.15);
+    }
+
+    .elite-screenshot {
+      width: 100%;
+      display: block;
+      border-radius: 16px;
+    }
+
+    /* DNA Card */
+    .elite-dna-card {
+      background: rgba(255,255,255,.04);
+      border: 1px solid rgba(255,255,255,.08);
+      border-radius: 20px;
+      padding: 24px;
+      backdrop-filter: blur(12px);
+    }
+
+    .elite-dna-header {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      font-size: 13px;
+      font-weight: 700;
+      color: #e8c89a;
+      margin-bottom: 20px;
+      padding-bottom: 16px;
+      border-bottom: 1px solid rgba(255,255,255,.07);
+    }
+
+    .elite-dna-type {
+      margin-left: 4px;
+      font-size: 11px;
+      font-weight: 700;
+      color: var(--ember-lt);
+      background: rgba(212,104,48,.18);
+      padding: 3px 10px;
+      border-radius: 100px;
+    }
+
+    .elite-update-btn {
+      margin-left: auto;
+      background: none;
+      border: none;
+      font-size: 11px;
+      font-weight: 600;
+      color: rgba(184,152,112,.6);
+      cursor: pointer;
+      font-family: var(--f-body);
+    }
+    .elite-update-btn:hover { color: var(--ember-lt); }
+
+    .elite-metrics {
+      display: flex;
+      flex-direction: column;
+      gap: 12px;
+      margin-bottom: 16px;
+    }
+
+    .elite-metric { }
+
+    .elite-metric-row {
+      display: flex;
+      justify-content: space-between;
+      margin-bottom: 5px;
+    }
+
+    .elite-metric-label {
+      font-size: 11px;
+      font-weight: 600;
+      color: rgba(184,152,112,.7);
+      letter-spacing: .04em;
+    }
+
+    .elite-metric-value {
+      font-size: 11px;
+      font-weight: 700;
+    }
+
+    .elite-metric-value.low { color: #5ab870; }
+    .elite-metric-value.warn { color: var(--ember-lt); }
+
+    .elite-bar-track {
+      height: 5px;
+      background: rgba(255,255,255,.06);
+      border-radius: 100px;
+      overflow: hidden;
+    }
+
+    .elite-bar-fill {
+      height: 100%;
+      border-radius: 100px;
+      transition: width .8s cubic-bezier(.22,1,.36,1);
+    }
+
+    .elite-bar-green { background: linear-gradient(90deg, #3d9e52, #5ab870); }
+    .elite-bar-amber { background: linear-gradient(90deg, #b8521e, #d46830); }
+
+    .elite-modes {
+      display: flex;
+      gap: 6px;
+      flex-wrap: wrap;
+      margin-bottom: 20px;
+      padding-bottom: 16px;
+      border-bottom: 1px solid rgba(255,255,255,.07);
+    }
+
+    .elite-mode {
+      display: inline-flex;
+      align-items: center;
+      gap: 5px;
+      padding: 5px 12px;
+      border-radius: 100px;
+      border: 1px solid rgba(255,255,255,.1);
+      font-size: 11px;
+      font-weight: 600;
+      color: rgba(184,152,112,.6);
+      cursor: default;
+    }
+
+    .elite-mode.active {
+      border-color: rgba(212,104,48,.5);
+      color: var(--ember-lt);
+      background: rgba(212,104,48,.1);
+    }
+
+    .elite-insights-list {
+      display: flex;
+      flex-direction: column;
+      gap: 0;
+    }
+
+    .elite-insight {
+      padding: 14px 0;
+      border-bottom: 1px solid rgba(255,255,255,.06);
+    }
+
+    .elite-insight:last-child { border-bottom: none; }
+
+    .elite-insight-title {
+      font-size: 13px;
+      font-weight: 700;
+      color: #e8c89a;
+      margin-bottom: 5px;
+    }
+
+    .elite-insight-body {
+      font-size: 12px;
+      line-height: 1.6;
+      color: rgba(184,152,112,.65);
+    }
+
+    /* Feature column */
+    .elite-features-col {
+      display: flex;
+      flex-direction: column;
+      gap: 28px;
+    }
+
+    .elite-feature-item {
+      display: flex;
+      gap: 16px;
+      align-items: flex-start;
+    }
+
+    .elite-feature-icon {
+      width: 42px;
+      height: 42px;
+      border-radius: 12px;
+      background: rgba(184,82,30,.15);
+      border: 1px solid rgba(184,82,30,.25);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      color: var(--ember-lt);
+      flex-shrink: 0;
+    }
+
+    .elite-feature-title {
+      font-size: 15px;
+      font-weight: 700;
+      color: #f0e0c8;
+      margin-bottom: 6px;
+      letter-spacing: -.01em;
+    }
+
+    .elite-feature-desc {
+      font-size: 13px;
+      line-height: 1.65;
+      color: rgba(184,152,112,.7);
+    }
+
+    .elite-cta-btn {
+      display: inline-flex;
+      align-items: center;
+      gap: 8px;
+      padding: 13px 28px;
+      background: var(--ember);
+      color: white;
+      border-radius: 100px;
+      font-family: var(--f-body);
+      font-size: 14px;
+      font-weight: 700;
+      text-decoration: none;
+      box-shadow: 0 4px 24px rgba(184,82,30,.45);
+      transition: all .2s;
+      margin-top: 8px;
+      align-self: flex-start;
+    }
+
+    .elite-cta-btn:hover {
+      background: var(--ember-lt);
+      transform: translateY(-2px);
+      box-shadow: 0 8px 32px rgba(184,82,30,.55);
+    }
+
+    .elite-cta-note {
+      font-size: 12px;
+      color: rgba(184,152,112,.5);
+      margin-top: 0;
+    }
+
+    @media (max-width: 900px) {
+      .elite-section { padding: 70px 32px; }
+      .elite-layout { grid-template-columns: 1fr; }
+      .elite-h { font-size: 34px !important; }
+    }
+
+    @media (max-width: 640px) {
+      .elite-section { padding: 50px 20px; }
+      .elite-h { font-size: 28px !important; }
+    }
+  </style>
+
+  <!-- ══════════════════════════════════════════════════
+       REAL STUDENT STORIES
+  ══════════════════════════════════════════════════ -->
+  <section class="testimonials-section" id="testimonials">
+    <div class="bento-header sr">
+      <div class="sec-eyebrow">Real students, real desks</div>
+      <h2 class="sec-h">They said the same thing<br>you're thinking — <em>"another app?"</em></h2>
+    </div>
+
+    <div class="testimonials-grid">
+      <div class="testimonial-card sr d1">
+        <div class="test-stars">
+          <svg width="12" height="12" viewBox="0 0 24 24" fill="var(--ember)" stroke="none"><polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"/></svg><svg width="12" height="12" viewBox="0 0 24 24" fill="var(--ember)" stroke="none"><polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"/></svg><svg width="12" height="12" viewBox="0 0 24 24" fill="var(--ember)" stroke="none"><polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"/></svg><svg width="12" height="12" viewBox="0 0 24 24" fill="var(--ember)" stroke="none"><polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"/></svg><svg width="12" height="12" viewBox="0 0 24 24" fill="var(--ember)" stroke="none"><polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"/></svg>
+        </div>
+        <p class="test-quote">"I opened it at 1am before a midterm and asked 'what do I still need to review?' It pulled from my notes, checked my calendar, and gave me an actual list. I almost cried."</p>
+        <div class="test-author">
+          <div class="test-avatar">M</div>
+          <div>
+            <div class="test-name">Marcus T.</div>
+            <div class="test-role">Second-year Chemistry</div>
+          </div>
+        </div>
+      </div>
+
+      <div class="testimonial-card sr d2">
+        <div class="test-stars">
+          <svg width="12" height="12" viewBox="0 0 24 24" fill="var(--ember)" stroke="none"><polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"/></svg><svg width="12" height="12" viewBox="0 0 24 24" fill="var(--ember)" stroke="none"><polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"/></svg><svg width="12" height="12" viewBox="0 0 24 24" fill="var(--ember)" stroke="none"><polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"/></svg><svg width="12" height="12" viewBox="0 0 24 24" fill="var(--ember)" stroke="none"><polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"/></svg><svg width="12" height="12" viewBox="0 0 24 24" fill="var(--ember)" stroke="none"><polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"/></svg>
+        </div>
+        <p class="test-quote">"The Therapist Mode thing sounds weird until you use it. I was spiralling about my dissertation and it helped me calm down and actually break the task into pieces. Wild."</p>
+        <div class="test-author">
+          <div class="test-avatar">A</div>
+          <div>
+            <div class="test-name">Amara L.</div>
+            <div class="test-role">PhD candidate, Linguistics</div>
+          </div>
+        </div>
+      </div>
+
+      <div class="testimonial-card sr d3">
+        <div class="test-stars">
+          <svg width="12" height="12" viewBox="0 0 24 24" fill="var(--ember)" stroke="none"><polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"/></svg><svg width="12" height="12" viewBox="0 0 24 24" fill="var(--ember)" stroke="none"><polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"/></svg><svg width="12" height="12" viewBox="0 0 24 24" fill="var(--ember)" stroke="none"><polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"/></svg><svg width="12" height="12" viewBox="0 0 24 24" fill="var(--ember)" stroke="none"><polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"/></svg><svg width="12" height="12" viewBox="0 0 24 24" fill="var(--ember)" stroke="none"><polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"/></svg>
+        </div>
+        <p class="test-quote">"It converted my 40-page anatomy notes into flashcards in like 30 seconds. I've been reviewing them during commutes. I don't know how I studied before this honestly."</p>
+        <div class="test-author">
+          <div class="test-avatar">J</div>
+          <div>
+            <div class="test-name">James K.</div>
+            <div class="test-role">Med school, Year 2</div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ══════════════════════════════════════════════════
+       CTA
+  ══════════════════════════════════════════════════ -->
+  <section class="cta-section">
+    <div class="cta-content">
+      <div class="cta-ornament">
+        <svg width="36" height="36" viewBox="0 0 24 24" fill="none" stroke="var(--ember)" stroke-width="1.5" stroke-linecap="round"><path d="M18 8h1a4 4 0 0 1 0 8h-1"/><path d="M2 8h16v9a4 4 0 0 1-4 4H6a4 4 0 0 1-4-4V8z"/><line x1="6" y1="1" x2="6" y2="4"/><line x1="10" y1="1" x2="10" y2="4"/><line x1="14" y1="1" x2="14" y2="4"/></svg>
+      </div>
+      <h2 class="cta-h sr">Your workspace<br>is waiting for you.</h2>
+      <p class="cta-p sr d1">No templates to fill out. No onboarding maze. Just open it, and it's already yours. Start with whatever you're working on right now.</p>
+      <div class="hero-actions sr d2">
+        <a href="/app" class="btn-ember">
+          Open Axinote — it's free
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12h14"/><path d="m12 5 7 7-7 7"/></svg>
+        </a>
+        <a href="/app" class="btn-ghost-nav">Log in</a>
+      </div>
+      <p class="cta-p sr d3" style="font-size:13px;margin-top:16px;margin-bottom:0;color:var(--ink-4);">Free plan · No credit card · Cancel if you hate it (you won't)</p>
+    </div>
+  </section>
+
+  <style>
+    /* ── MANIFESTO ─────────────────────────────────── */
+    .manifesto-section {
+      padding: 70px 52px;
+      background: var(--ink);
+      position: relative;
+      z-index: 1;
+    }
+
+    .manifesto-inner {
+      max-width: 780px;
+      margin: 0 auto;
+      text-align: center;
+    }
+
+    .manifesto-quote {
+      font-family: var(--f-head);
+      font-size: 28px;
+      font-weight: 400;
+      font-style: italic;
+      line-height: 1.55;
+      color: var(--paper-2);
+      letter-spacing: -.01em;
+      margin-bottom: 20px;
+    }
+
+    .manifesto-quote em {
+      color: var(--ember-lt);
+      font-style: italic;
+    }
+
+    .manifesto-attr {
+      font-size: 13px;
+      font-weight: 600;
+      color: var(--ink-4);
+      letter-spacing: .06em;
+      text-transform: uppercase;
+    }
+
+    @media (max-width: 640px) {
+      .manifesto-section { padding: 50px 20px; }
+      .manifesto-quote { font-size: 20px; }
+    }
+
+    /* ── FLOWAI SECTION ────────────────────────────── */
+    .flowai-section {
+      padding: 90px 52px;
+      background: var(--paper);
+      position: relative;
+      z-index: 1;
+    }
+
+    .flowai-header {
+      max-width: 700px;
+      margin: 0 auto 60px;
+      text-align: center;
+    }
+
+    .flowai-h { font-size: 48px; }
+
+    .flowai-intro {
+      font-size: 17px;
+      line-height: 1.65;
+      color: var(--ink-3);
+      margin-top: 16px;
+    }
+
+    .flowai-modes {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 20px;
+      max-width: 1060px;
+      margin: 0 auto 60px;
+    }
+
+    .flowai-mode-card {
+      border-radius: 22px;
+      padding: 32px;
+      border: 1.5px solid var(--rule);
+    }
+
+    .flowai-mode-study {
+      background: var(--paper-2);
+    }
+
+    .flowai-mode-therapist {
+      background: linear-gradient(140deg, #fdf0f5 0%, #faf5ec 100%);
+      border-color: rgba(180, 80, 100, .15);
+    }
+
+    .flowai-mode-icon {
+      width: 44px;
+      height: 44px;
+      background: var(--ember);
+      border-radius: 12px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      color: white;
+      margin-bottom: 16px;
+    }
+
+    .flowai-mode-icon-heart {
+      background: linear-gradient(135deg, #c0526a, #d46830);
+    }
+
+    .flowai-mode-tag {
+      display: inline-block;
+      font-size: 11px;
+      font-weight: 700;
+      color: var(--ember);
+      background: var(--ember-dim);
+      padding: 4px 12px;
+      border-radius: 100px;
+      letter-spacing: .06em;
+      text-transform: uppercase;
+      margin-bottom: 14px;
+    }
+
+    .flowai-mode-tag-heart {
+      color: #c0526a;
+      background: rgba(192, 82, 106, .1);
+    }
+
+    .flowai-mode-title {
+      font-family: var(--f-head);
+      font-size: 24px;
+      font-weight: 700;
+      color: var(--ink);
+      letter-spacing: -.02em;
+      margin-bottom: 12px;
+      line-height: 1.2;
+    }
+
+    .flowai-mode-desc {
+      font-size: 14px;
+      line-height: 1.65;
+      color: var(--ink-3);
+      margin-bottom: 20px;
+    }
+
+    .flowai-prompts {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 7px;
+    }
+
+    .flowai-prompt {
+      font-size: 11.5px;
+      font-weight: 600;
+      background: var(--paper);
+      border: 1px solid var(--rule);
+      color: var(--ink-2);
+      padding: 5px 12px;
+      border-radius: 100px;
+      cursor: default;
+      transition: all .15s;
+    }
+
+    .flowai-prompt:hover {
+      border-color: var(--ember);
+      color: var(--ember);
+    }
+
+    .flowai-prompts-heart .flowai-prompt-heart {
+      background: white;
+      border-color: rgba(192, 82, 106, .2);
+    }
+
+    .flowai-prompts-heart .flowai-prompt-heart:hover {
+      border-color: #c0526a;
+      color: #c0526a;
+    }
+
+    .flowai-caps {
+      display: grid;
+      grid-template-columns: repeat(3, 1fr);
+      gap: 16px;
+      max-width: 1060px;
+      margin: 0 auto 60px;
+    }
+
+    .flowai-cap {
+      padding: 22px;
+      background: var(--paper-2);
+      border: 1px solid var(--rule);
+      border-radius: 16px;
+      transition: all .2s;
+    }
+
+    .flowai-cap:hover {
+      border-color: var(--ember);
+      transform: translateY(-2px);
+      box-shadow: 0 6px 20px rgba(184,82,30,.1);
+    }
+
+    .flowai-cap-icon {
+      font-size: 24px;
+      margin-bottom: 10px;
+    }
+
+    .flowai-cap-title {
+      font-size: 14px;
+      font-weight: 700;
+      color: var(--ink);
+      margin-bottom: 6px;
+    }
+
+    .flowai-cap-desc {
+      font-size: 12.5px;
+      line-height: 1.6;
+      color: var(--ink-3);
+    }
+
+    .flowai-screenshot-wrap {
+      max-width: 1060px;
+      margin: 0 auto;
+    }
+
+    /* ── STARS ─────────────────────────────────────── */
+    .test-stars {
+      font-size: 14px;
+      color: var(--ember);
+      letter-spacing: 2px;
+      margin-bottom: 12px;
+    }
+
+    /* ── CTA ORNAMENT ──────────────────────────────── */
+    .cta-ornament {
+      font-size: 40px;
+      margin-bottom: 16px;
+      display: block;
+      animation: float 4s ease-in-out infinite;
+    }
+
+    @media (max-width: 900px) {
+      .flowai-modes { grid-template-columns: 1fr; }
+      .flowai-caps { grid-template-columns: repeat(2, 1fr); }
+      .flowai-section { padding: 70px 32px; }
+      .flowai-h { font-size: 38px; }
+    }
+
+    @media (max-width: 640px) {
+      .flowai-section { padding: 50px 20px; }
+      .flowai-caps { grid-template-columns: 1fr; }
+      .flowai-h { font-size: 30px; }
+    }
+  </style>
+
+  <!-- ══════════════════════════════════════════════════
+       FOOTER
+  ══════════════════════════════════════════════════ -->
+  <footer>
+    <a href="#" class="footer-logo">
+      <div class="footer-logo-icon">
+        <img src="assets/icons/android-chrome-192x192.png" alt="Axinote">
+      </div>
+      Axinote
+    </a>
+    <div class="footer-links">
+      <a href="#features" class="footer-link">Features</a>
+      <a href="#testimonials" class="footer-link">Testimonials</a>
+      <a href="pricing.html" class="footer-link">Pricing</a>
+      <a href="/app" class="footer-link">Open workspace</a>
+    </div>
+    <div class="footer-copy">© 2026 Axinote — Made with warmth</div>
+  </footer>
+
+  <script src="js/index.js"></script>
+</body>
+</html>

@@ -1,0 +1,313 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Axinote Pricing</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,500;9..144,700&family=Plus+Jakarta+Sans:wght@400;600;700&display=swap" rel="stylesheet">
+  <style>
+    :root {
+      --bg:#faf5ec;
+      --card:#fff;
+      --ink:#1a1108;
+      --muted:#70553a;
+      --line:rgba(90,60,20,.14);
+      --accent:#b8521e;
+      --moss:#3d6b45;
+      --head:'Fraunces',serif;
+      --body:'Plus Jakarta Sans',sans-serif;
+    }
+    *{box-sizing:border-box}
+    body{margin:0;font-family:var(--body);background:radial-gradient(circle at top,#fff7eb,var(--bg));color:var(--ink)}
+    nav{position:sticky;top:0;z-index:20;height:64px;display:flex;align-items:center;justify-content:space-between;padding:0 22px;border-bottom:1px solid var(--line);background:rgba(250,245,236,.94);backdrop-filter:blur(16px)}
+    .brand{display:inline-flex;align-items:center;gap:10px;text-decoration:none;color:var(--ink);font-family:var(--head);font-size:22px;font-style:italic;font-weight:700}
+    .mark{width:30px;height:30px;border-radius:8px;background:var(--accent);color:#fff;display:inline-flex;align-items:center;justify-content:center;font-size:13px;font-weight:800}
+    .btn{display:inline-flex;align-items:center;justify-content:center;border-radius:999px;text-decoration:none;font-weight:700;transition:.15s ease;cursor:pointer}
+    .btn-outline{border:1.5px solid #b89870;color:#3d2e1a;padding:8px 16px;font-size:13px}
+    .btn-main{border:1.5px solid var(--accent);background:var(--accent);color:#fff;padding:9px 18px;font-size:13px}
+
+    .wrap{max-width:1180px;margin:0 auto;padding:56px 20px 76px}
+    h1{font-family:var(--head);font-size:clamp(34px,5vw,56px);margin:0 0 8px;letter-spacing:-.02em}
+    .sub{color:var(--muted);margin:0 0 24px}
+
+    .toggle{display:inline-flex;background:#f3ead8;border:1px solid var(--line);border-radius:999px;padding:4px;gap:4px;margin-bottom:18px}
+    .toggle button{border:none;background:transparent;padding:8px 14px;border-radius:999px;font-weight:700;font-size:13px;color:#3d2e1a;cursor:pointer}
+    .toggle button.active{background:var(--accent);color:#fff}
+
+    .plans{display:grid;grid-template-columns:repeat(5,minmax(0,1fr));gap:14px}
+    .plan{background:var(--card);border:1px solid var(--line);border-radius:16px;padding:16px;display:flex;flex-direction:column;min-height:430px}
+    .plan.featured{border-color:rgba(184,82,30,.4);box-shadow:0 8px 22px rgba(184,82,30,.12)}
+    .tier{font-size:11px;text-transform:uppercase;letter-spacing:.12em;color:var(--muted);font-weight:700}
+    .price{font-family:var(--head);font-size:40px;line-height:1;margin:6px 0 4px}
+    .meta{font-size:13px;color:var(--muted);margin-bottom:10px}
+    .line{height:1px;background:var(--line);margin:8px 0 12px}
+    ul{margin:0;padding-left:18px;color:#3d2e1a;font-size:13px;line-height:1.55}
+    .cta{margin-top:auto;padding-top:14px}
+    .get{width:100%;border:1.5px solid var(--accent);background:var(--accent);color:#fff;padding:10px 12px;border-radius:999px;font-weight:700;text-decoration:none;display:inline-flex;justify-content:center;font-size:13px}
+    .best{display:inline-block;font-size:10px;font-weight:800;background:var(--moss);color:#fff;padding:3px 8px;border-radius:999px;letter-spacing:.06em;text-transform:uppercase;margin-top:8px}
+
+    .annual{display:none}
+    .show-annual .monthly{display:none}
+    .show-annual .annual{display:grid}
+
+    @media (max-width:1080px){.plans{grid-template-columns:repeat(2,minmax(0,1fr))}}
+    @media (max-width:680px){.plans{grid-template-columns:1fr}.btn-outline{display:none}}
+  </style>
+</head>
+<body>
+  <nav>
+    <a href="/welcome" class="brand"><span class="mark">A</span>Axinote</a>
+    <div style="display:inline-flex;gap:10px">
+      <a href="/welcome" class="btn btn-outline">Back to Home</a>
+      <a href="/app" class="btn btn-main">Start Free</a>
+    </div>
+  </nav>
+
+  <main class="wrap" id="pricing-root">
+    <h1>Choose your plan</h1>
+    <p class="sub">Plans are shown in boxes with included perks. “Get” buttons are placeholders for now.</p>
+
+    <div class="toggle" role="tablist" aria-label="Billing mode">
+      <button id="m-btn" class="active" onclick="setMode('monthly')">Monthly</button>
+      <button id="a-btn" onclick="setMode('annual')">Annual</button>
+    </div>
+
+    <section class="plans monthly">
+      <article class="plan">
+        <div class="tier">Free</div>
+        <div class="price">$0</div>
+        <div class="meta">5,000 credits / month</div>
+        <div class="line"></div>
+        <ul>
+          <li>Core notes, tasks, flashcards</li>
+          <li>FlowAI chat — daily cap</li>
+          <li>Starter workspace tools</li>
+          <li>Spotify Connect in Focus Timer</li>
+        </ul>
+        <div class="cta"><a class="get" href="#" onclick="event.preventDefault()">Get Free</a></div>
+      </article>
+
+      <article class="plan">
+        <div class="tier">Lite</div>
+        <div class="price">$3</div>
+        <div class="meta">20,000 credits / month</div>
+        <div class="line"></div>
+        <ul>
+          <li>Higher AI usage limits</li>
+          <li>AI planning suggestions</li>
+          <li>Highlight &amp; explain AI</li>
+          <li>Smooth daily workflows</li>
+          <li>Spotify Connect in Focus Timer</li>
+        </ul>
+        <div class="cta"><a class="get" href="#" onclick="event.preventDefault()">Get Lite</a></div>
+      </article>
+
+      <article class="plan">
+        <div class="tier">Pro</div>
+        <div class="price">$5</div>
+        <div class="meta">50,000 credits / month</div>
+        <div class="line"></div>
+        <ul>
+          <li>Mock exams + deeper study tools</li>
+          <li>Advanced revision analytics</li>
+          <li>Stronger AI assistance</li>
+          <li>Spotify Connect in Focus Timer</li>
+        </ul>
+        <div class="cta"><a class="get" href="#" onclick="event.preventDefault()">Get Pro</a></div>
+      </article>
+
+      <article class="plan featured">
+        <div class="tier">Advanced</div>
+        <div class="price">$10</div>
+        <div class="meta">100,000 credits / month</div>
+        <div class="line"></div>
+        <ul>
+          <li>Everything in Pro</li>
+          <li>Exam Insights (Preview)</li>
+          <li>Spotify Connect in Focus Timer</li>
+          <li>Top-up: 50k credits for $2</li>
+          <li>Limit: 1 top-up / month</li>
+        </ul>
+        <div class="cta"><a class="get" href="#" onclick="event.preventDefault()">Get Advanced</a></div>
+      </article>
+
+      <article class="plan featured">
+        <div class="tier">Elite</div>
+        <div class="price">$19</div>
+        <div class="meta">200,000 credits / month</div>
+        <div class="best">Best for Exams & Power Users</div>
+        <div class="line"></div>
+        <ul>
+          <li>Exam Advantage System</li>
+          <li>Exam Readiness Score (0–100)</li>
+          <li>Singapore-focused predictions</li>
+          <li>Group Elite benchmarking</li>
+          <li>Spotify Connect in Focus Timer</li>
+          <li>Top-up: 50k credits for $2 (up to 3/month)</li>
+        </ul>
+        <div class="cta"><a class="get" href="#" onclick="event.preventDefault()">Get Elite</a></div>
+      </article>
+    </section>
+
+    <section class="plans annual">
+      <article class="plan">
+        <div class="tier">Lite (Annual)</div>
+        <div class="price">$30</div>
+        <div class="meta">$2.50 / month effective · 20,000 credits / month</div>
+        <div class="line"></div>
+        <ul>
+          <li>Same Lite perks</li>
+          <li>Spotify Connect in Focus Timer</li>
+          <li>Lower effective monthly price</li>
+        </ul>
+        <div class="cta"><a class="get" href="#" onclick="event.preventDefault()">Get Lite Annual</a></div>
+      </article>
+
+      <article class="plan">
+        <div class="tier">Pro (Annual)</div>
+        <div class="price">$48</div>
+        <div class="meta">$4.00 / month effective · 50,000 credits / month</div>
+        <div class="line"></div>
+        <ul>
+          <li>Same Pro perks</li>
+          <li>Spotify Connect in Focus Timer</li>
+          <li>Lower effective monthly price</li>
+        </ul>
+        <div class="cta"><a class="get" href="#" onclick="event.preventDefault()">Get Pro Annual</a></div>
+      </article>
+
+      <article class="plan featured">
+        <div class="tier">Advanced (Annual)</div>
+        <div class="price">$96</div>
+        <div class="meta">$8.00 / month effective · 100,000 credits / month</div>
+        <div class="line"></div>
+        <ul>
+          <li>Same Advanced perks</li>
+          <li>Exam Insights (Preview)</li>
+          <li>Spotify Connect in Focus Timer</li>
+          <li>Top-up eligible</li>
+        </ul>
+        <div class="cta"><a class="get" href="#" onclick="event.preventDefault()">Get Advanced Annual</a></div>
+      </article>
+
+      <article class="plan featured" style="grid-column:span 2">
+        <div class="tier">Elite (Annual)</div>
+        <div class="price">$180</div>
+        <div class="meta">$15.00 / month effective · 200,000 credits / month</div>
+        <div class="best">Best for Exams & Power Users</div>
+        <div class="line"></div>
+        <ul>
+          <li>Everything in Elite monthly</li>
+          <li>Exam Advantage System included</li>
+          <li>Exam Readiness Score (0–100)</li>
+          <li>Spotify Connect in Focus Timer</li>
+          <li>Best annual value</li>
+          <li>Top-up eligible</li>
+        </ul>
+        <div class="cta"><a class="get" href="#" onclick="event.preventDefault()">Get Elite Annual</a></div>
+      </article>
+    </section>
+
+    <h2 style="font-family:var(--head);font-size:28px;margin:56px 0 8px;letter-spacing:-.01em">Full feature comparison</h2>
+    <p style="color:var(--muted);margin:0 0 24px;font-size:14px">Every feature across every plan at a glance.</p>
+
+    <div style="overflow-x:auto;-webkit-overflow-scrolling:touch;border:1px solid var(--line);border-radius:16px">
+      <table style="width:100%;border-collapse:collapse;font-size:13px;min-width:700px">
+        <thead>
+          <tr style="background:#f3ead8">
+            <th style="text-align:left;padding:14px 18px;font-weight:700;color:var(--ink);width:32%;border-bottom:1px solid var(--line)">Feature</th>
+            <th style="text-align:center;padding:14px 10px;font-weight:700;color:var(--muted);border-bottom:1px solid var(--line)">Free</th>
+            <th style="text-align:center;padding:14px 10px;font-weight:700;color:var(--muted);border-bottom:1px solid var(--line)">Lite<br><span style="font-weight:400;font-size:11px">$3/mo</span></th>
+            <th style="text-align:center;padding:14px 10px;font-weight:700;color:var(--muted);border-bottom:1px solid var(--line)">Pro<br><span style="font-weight:400;font-size:11px">$5/mo</span></th>
+            <th style="text-align:center;padding:14px 10px;font-weight:700;color:var(--accent);border-bottom:1px solid var(--line)">Advanced<br><span style="font-weight:400;font-size:11px">$10/mo</span></th>
+            <th style="text-align:center;padding:14px 10px;font-weight:700;color:var(--moss);border-bottom:1px solid var(--line)">Elite<br><span style="font-weight:400;font-size:11px">$19/mo</span></th>
+          </tr>
+        </thead>
+        <tbody id="comparison-body"></tbody>
+      </table>
+    </div>
+
+    <script>
+      const rows = [
+        { section: 'AI Credits' },
+        { label: 'Monthly credits', free: '5,000', lite: '20,000', pro: '50,000', adv: '100,000', elite: '200,000' },
+        { label: 'Credit top-up (50k for $2)', free: '✗', lite: '✗', pro: '✗', adv: '1× / month', elite: '3× / month' },
+        { section: 'Core Productivity' },
+        { label: 'Notes & pages', free: '✓', lite: '✓', pro: '✓', adv: '✓', elite: '✓' },
+        { label: 'Tasks & calendar', free: '✓', lite: '✓', pro: '✓', adv: '✓', elite: '✓' },
+        { label: 'Flashcards', free: '✓', lite: '✓', pro: '✓', adv: '✓', elite: '✓' },
+        { label: 'Projects & databases', free: '✓', lite: '✓', pro: '✓', adv: '✓', elite: '✓' },
+        { label: 'Focus Timer (Pomodoro)', free: '✓', lite: '✓', pro: '✓', adv: '✓', elite: '✓' },
+        { label: 'Spotify Connect in timer', free: '✓', lite: '✓', pro: '✓', adv: '✓', elite: '✓' },
+        { section: 'AI Features' },
+        { label: 'FlowAI chat assistant', free: 'Daily cap', lite: 'Standard', pro: 'Strong', adv: 'Advanced', elite: 'Elite' },
+        { label: 'AI writing & editing', free: '✓', lite: '✓', pro: '✓', adv: '✓', elite: '✓' },
+        { label: 'AI study coach', free: '✗', lite: '✓', pro: '✓', adv: '✓', elite: '✓' },
+        { label: 'AI planning suggestions', free: '✗', lite: '✓', pro: '✓', adv: '✓', elite: '✓' },
+        { label: 'Smart flashcard generation', free: '✗', lite: '✓', pro: '✓', adv: '✓', elite: '✓' },
+        { label: 'Highlight & explain AI', free: '✗', lite: '✓', pro: '✓', adv: '✓', elite: '✓' },
+        { section: 'Study & Revision Tools' },
+        { label: 'Revision scheduler', free: '✓', lite: '✓', pro: '✓', adv: '✓', elite: '✓' },
+        { label: 'Mock exams', free: '✗', lite: '✗', pro: '✓', adv: '✓', elite: '✓' },
+        { label: 'Advanced revision analytics', free: '✗', lite: '✗', pro: '✓', adv: '✓', elite: '✓' },
+        { label: 'Exam Advantage System', free: '✗', lite: '✗', pro: '✗', adv: 'Preview only', elite: '✓ Full system' },
+        { label: 'Exam Readiness Score (0–100)', free: '✗', lite: '✗', pro: '✗', adv: '✗', elite: '✓' },
+        { label: 'Predicted grade range', free: '✗', lite: '✗', pro: '✗', adv: '✗', elite: '✓' },
+        { label: 'SG topic probability', free: '✗', lite: '✗', pro: '✗', adv: '✗', elite: '✓' },
+        { label: 'Peer benchmarking', free: '✗', lite: '✗', pro: '✗', adv: '✗', elite: '✓' },
+        { label: 'Full simulation diagnostics', free: '✗', lite: '✗', pro: '✗', adv: '✗', elite: '✓' },
+        { section: 'Collaboration' },
+        { label: 'Study Groups', free: '✓', lite: '✓', pro: '✓', adv: '✓', elite: '✓' },
+        { label: 'Collab Notes (real-time)', free: '✓', lite: '✓', pro: '✓', adv: '✓', elite: '✓' },
+        { label: 'Group chat', free: '✓', lite: '✓', pro: '✓', adv: '✓', elite: '✓' },
+        { label: 'Elite group benchmarking', free: '✗', lite: '✗', pro: '✗', adv: '✗', elite: '✓' },
+        { section: 'Onboarding & Support' },
+        { label: 'Personalised onboarding', free: '✓', lite: '✓', pro: '✓', adv: '✓', elite: '✓' },
+        { label: 'Priority support', free: '✗', lite: '✗', pro: '✗', adv: '✓', elite: '✓' },
+        { label: 'Early access to new features', free: '✗', lite: '✗', pro: '✗', adv: '✗', elite: '✓' },
+      ];
+
+      const yes = v => v === '✓';
+      const no  = v => v === '✗';
+      const cols = ['free','lite','pro','adv','elite'];
+
+      const tbody = document.getElementById('comparison-body');
+      let rowIdx = 0;
+      rows.forEach(r => {
+        const tr = document.createElement('tr');
+        if (r.section) {
+          tr.innerHTML = `<td colspan="6" style="padding:12px 18px 6px;font-size:11px;font-weight:800;text-transform:uppercase;letter-spacing:.1em;color:var(--muted);background:#faf5ec;border-top:1px solid var(--line)">${r.section}</td>`;
+        } else {
+          const bg = rowIdx % 2 === 0 ? '#fff' : '#fdfaf5';
+          rowIdx++;
+          const cells = cols.map((c,i) => {
+            const v = r[c];
+            const color = yes(v) ? 'var(--moss)' : no(v) ? '#c0a882' : 'var(--ink)';
+            const fw = (yes(v) || no(v)) ? '700' : '500';
+            const highlight = (i === 3) ? 'background:rgba(184,82,30,.04);' : (i === 4) ? 'background:rgba(61,107,69,.04);' : '';
+            return `<td style="text-align:center;padding:10px;color:${color};font-weight:${fw};${highlight}border-bottom:1px solid var(--line)">${v}</td>`;
+          }).join('');
+          tr.innerHTML = `<td style="padding:10px 18px;font-weight:500;color:var(--ink);background:${bg};border-bottom:1px solid var(--line)">${r.label}</td>${cells}`;
+          tr.style.background = bg;
+        }
+        tbody.appendChild(tr);
+      });
+    </script>
+
+  </main>
+
+  <script>
+    function setMode(mode) {
+      const root = document.getElementById('pricing-root');
+      const m = document.getElementById('m-btn');
+      const a = document.getElementById('a-btn');
+      const annual = mode === 'annual';
+      root.classList.toggle('show-annual', annual);
+      m.classList.toggle('active', !annual);
+      a.classList.toggle('active', annual);
+    }
+  </script>
+</body>
+</html>

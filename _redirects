@@ -1,0 +1,4 @@
+# Avoid .html rewrite loops on hosts that canonicalize extensionless URLs.
+# Keep SPA fallbacks on extensionless entry routes only.
+/app/*       /app       200
+/admin/*     /admin     200
