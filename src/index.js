@@ -32,6 +32,7 @@ function jsonResponse(body, status, origin, env) {
 
 function isOriginAllowed(origin, env) {
   const allowedOrigins = parseAllowedOrigins(env.ALLOWED_ORIGIN);
+  if (!origin) return true;
   if (allowedOrigins.length === 0) return true;
   return !!origin && allowedOrigins.includes(origin);
 }
@@ -48,11 +49,14 @@ export default {
       return new Response(null, { status: 204, headers: corsHeaders(origin, env) });
     }
 
-    if (url.pathname === '/health') {
+    const isHealthRoute = url.pathname === '/health' || url.pathname === '/api/health';
+    const isAIRoute = url.pathname === '/ai' || url.pathname === '/api/ai';
+
+    if (isHealthRoute) {
       return jsonResponse({ ok: true, service: 'flowday-ai' }, 200, origin, env);
     }
 
-    if (url.pathname !== '/ai' || request.method !== 'POST') {
+    if (!isAIRoute || request.method !== 'POST') {
       return jsonResponse({ error: 'Not found' }, 404, origin, env);
     }
 
@@ -87,18 +91,26 @@ export default {
       return jsonResponse({ error: 'At least one message is required' }, 400, origin, env);
     }
 
-    const upstream = await fetch('https://api.openai.com/v1/chat/completions', {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        'Authorization': `Bearer ${env.OPENAI_API_KEY}`,
-      },
-      body: JSON.stringify({
-        model,
-        messages,
-        max_tokens: maxTokens,
-      }),
-    });
+    let upstream;
+    try {
+      upstream = await fetch('https://api.openai.com/v1/chat/completions', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${env.OPENAI_API_KEY}`,
+        },
+        body: JSON.stringify({
+          model,
+          messages,
+          max_tokens: maxTokens,
+        }),
+      });
+    } catch (error) {
+      return jsonResponse({
+        error: 'OpenAI upstream request failed',
+        detail: error instanceof Error ? error.message : 'Unknown fetch error',
+      }, 502, origin, env);
+    }
 
     const rawText = await upstream.text();
     let data;

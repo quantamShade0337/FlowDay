@@ -8030,10 +8030,22 @@ const AI = {
 };
 
 // ─── AI Config ───────────────────────────────────────────────
-const DEFAULT_WORKER_URL = 'https://flowday-ai-proxy.ethan-sohyt.workers.dev';
+const LEGACY_WORKER_URL = 'https://flowday-ai-proxy.ethan-sohyt.workers.dev';
+
+function normalizeWorkerBaseUrl(value) {
+  return String(value || '').trim().replace(/\/+$/, '');
+}
+
+function inferDefaultWorkerUrl() {
+  const origin = normalizeWorkerBaseUrl(window.location.origin);
+  const hostname = String(window.location.hostname || '').toLowerCase();
+  const isLocalHost = hostname === 'localhost' || hostname === '127.0.0.1';
+  return (!isLocalHost && origin) ? origin : LEGACY_WORKER_URL;
+}
+
 function getWorkerUrl() {
-  let u = localStorage.getItem('ai_worker_url') || DEFAULT_WORKER_URL;
-  return u.replace(/\/+$/, '');
+  const saved = normalizeWorkerBaseUrl(localStorage.getItem('ai_worker_url'));
+  return saved || inferDefaultWorkerUrl();
 }
 function setWorkerUrl(u) { localStorage.setItem('ai_worker_url', u.replace(/\/+$/, '')); }
 
@@ -8334,45 +8346,55 @@ function _extractCFText(data) {
 
 // ─── Legacy Cloudflare Worker call (FlowAI now stays local) ────────────────
 async function _cfCall(system, messages, maxTokens, retries = 2) {
-  const workerUrl = getWorkerUrl();
-  
-  const endpoint = workerUrl + '/ai';
+  const configuredBase = getWorkerUrl();
+  const sameOriginBase = inferDefaultWorkerUrl();
+  const baseCandidates = Array.from(new Set([configuredBase, sameOriginBase, LEGACY_WORKER_URL].filter(Boolean)));
+
   let lastErr;
-  for (let attempt = 0; attempt <= retries; attempt++) {
-    if (attempt > 0) {
-      await new Promise(r => setTimeout(r, 1000 * attempt)); // exponential backoff
-    }
-    try {
-      const res = await fetch(endpoint, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ system, messages, max_tokens: maxTokens })
-      });
-      if (!res.ok) {
-        const body = await res.text().catch(() => '');
-        if (res.status === 429 && attempt < retries) {
-          lastErr = new Error(`Rate limited (429). Retrying…`);
-          continue;
-        }
-        if (res.status >= 500 && attempt < retries) {
-          lastErr = new Error(`Server error ${res.status}. Retrying…`);
-          continue;
-        }
-        throw new Error(`Worker returned ${res.status}: ${body.slice(0, 200)}`);
+
+  for (const baseUrl of baseCandidates) {
+    const endpoint = baseUrl + (baseUrl === LEGACY_WORKER_URL ? '/ai' : '/api/ai');
+
+    for (let attempt = 0; attempt <= retries; attempt++) {
+      if (attempt > 0) {
+        await new Promise(r => setTimeout(r, 1000 * attempt)); // exponential backoff
       }
-      const data = await res.json();
-      const text = _extractCFText(data);
-      if (!text) throw new Error('Worker returned an empty response. Check your Worker logs.');
-      return text;
-    } catch (netErr) {
-      if (attempt < retries) {
+      try {
+        const res = await fetch(endpoint, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ system, messages, max_tokens: maxTokens })
+        });
+        if (!res.ok) {
+          const body = await res.text().catch(() => '');
+          if (res.status === 404 || res.status === 522) {
+            lastErr = new Error(`Worker route unavailable at ${endpoint}`);
+            break;
+          }
+          if (res.status === 429 && attempt < retries) {
+            lastErr = new Error(`Rate limited (429). Retrying…`);
+            continue;
+          }
+          if (res.status >= 500 && attempt < retries) {
+            lastErr = new Error(`Server error ${res.status}. Retrying…`);
+            continue;
+          }
+          throw new Error(`Worker returned ${res.status}: ${body.slice(0, 200)}`);
+        }
+        const data = await res.json();
+        const text = _extractCFText(data);
+        if (!text) throw new Error('Worker returned an empty response. Check your Worker logs.');
+        return text;
+      } catch (netErr) {
         lastErr = netErr;
-        continue;
+        if (attempt < retries) {
+          continue;
+        }
       }
-      throw new Error(`Cannot reach Worker at ${endpoint} after ${retries + 1} attempts.\n${netErr.message}`);
     }
   }
-  throw lastErr || new Error('AI request failed after retries');
+
+  throw new Error(`Cannot reach any AI worker endpoint.\n${lastErr?.message || 'Unknown network error'}`);
 }
 
 // ─── Core AI call ─────────────────────────────────────────────

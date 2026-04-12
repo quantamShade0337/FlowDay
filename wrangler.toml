@@ -19,7 +19,7 @@ compatibility_flags = ["nodejs_compat"]
 # Optional: restrict which origins can call this worker.
 # Comma-separated list of allowed origins. Leave blank to allow all.
 [vars]
-ALLOWED_ORIGIN = "https://flowday.app,https://www.flowday.app"
+ALLOWED_ORIGIN = "https://flowday.app,https://www.flowday.app,https://axinote.ethansoh.com"
 # During development, also allow localhost:
 # ALLOWED_ORIGIN = "https://flowday.app,http://localhost:5500,http://127.0.0.1:5500"
 
@@ -29,7 +29,7 @@ ALLOWED_ORIGIN = "https://flowday.app,https://www.flowday.app"
 name = "flowday-ai"
 
 [env.production.vars]
-ALLOWED_ORIGIN = "https://flowday.app,https://www.flowday.app"
+ALLOWED_ORIGIN = "https://flowday.app,https://www.flowday.app,https://axinote.ethansoh.com"
 
 
 # ─── Staging / preview environment ───────────────────────────────────────────
@@ -43,8 +43,8 @@ ALLOWED_ORIGIN = ""   # allow all origins in staging
 # ─── Routes ──────────────────────────────────────────────────────────────────
 # Uncomment and fill in if you want to serve the worker on a custom domain:
 # [[routes]]
-# pattern = "api.flowday.app/ai/*"
-# zone_name = "flowday.app"
+# pattern = "axinote.ethansoh.com/api/*"
+# zone_name = "ethansoh.com"
 
 
 # ─── Observability ───────────────────────────────────────────────────────────
