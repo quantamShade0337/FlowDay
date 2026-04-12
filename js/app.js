@@ -2449,21 +2449,42 @@ const NoteInk = {
   tool: 'pen',
   color: NOTE_INK_COLORS[0],
   highlighterColor: NOTE_INK_HIGHLIGHTERS[0],
+  penWidth: 2.6,
+  highlighterWidth: 18,
   activeStroke: null,
   pointerId: null,
   drawing: false,
 };
+const NOTE_INK_SIZES = {
+  pen: [
+    { id: 'fine', label: 'Fine', width: 1.8 },
+    { id: 'medium', label: 'Medium', width: 2.6 },
+    { id: 'bold', label: 'Bold', width: 4.2 },
+  ],
+  highlighter: [
+    { id: 'small', label: 'Small', width: 14 },
+    { id: 'medium', label: 'Medium', width: 18 },
+    { id: 'broad', label: 'Broad', width: 24 },
+  ],
+};
+const NOTE_INK_GROWTH_CHUNK = 720;
+const NOTE_INK_GROWTH_THRESHOLD = 180;
 window.addEventListener('resize', () => {
   if (NoteInk.enabled) redrawNoteInk();
 });
 
 function noteInkToolbarHTML(page) {
   const strokeCount = (page?.inkStrokes || []).length;
+  const sizes = NOTE_INK_SIZES[NoteInk.tool] || NOTE_INK_SIZES.pen;
+  const activeWidth = NoteInk.tool === 'highlighter' ? NoteInk.highlighterWidth : NoteInk.penWidth;
   return `<div class="note-ink-toolbar">
     <button class="note-ink-toggle${NoteInk.enabled ? ' active' : ''}" onclick="toggleNoteInkMode()" title="Stylus writing mode">${icons.penIcon} ${NoteInk.enabled ? 'Ink On' : 'Ink Off'}</button>
     <div class="note-ink-tools">
       <button class="note-ink-tool${NoteInk.tool === 'pen' ? ' active' : ''}" onclick="setNoteInkTool('pen')">Pen</button>
       <button class="note-ink-tool${NoteInk.tool === 'highlighter' ? ' active' : ''}" onclick="setNoteInkTool('highlighter')">Highlighter</button>
+    </div>
+    <div class="note-ink-tools">
+      ${sizes.map(size => `<button class="note-ink-tool${Math.abs(activeWidth - size.width) < 0.05 ? ' active' : ''}" onclick="setNoteInkSize(${size.width})">${size.label}</button>`).join('')}
     </div>
     <div class="note-ink-swatches">
       ${NOTE_INK_COLORS.map(color => `<button class="note-ink-swatch${NoteInk.tool === 'pen' && NoteInk.color === color ? ' active' : ''}" onclick="setNoteInkColor('${color}')" style="background:${color}" title="${color}"></button>`).join('')}
@@ -2500,6 +2521,13 @@ function setNoteInkColor(color, highlighter = false) {
   renderNoteInkToolbar();
 }
 
+function setNoteInkSize(width) {
+  const nextWidth = Math.max(1, Number(width) || 0);
+  if (NoteInk.tool === 'highlighter') NoteInk.highlighterWidth = nextWidth;
+  else NoteInk.penWidth = nextWidth;
+  renderNoteInkToolbar();
+}
+
 function renderNoteInkToolbar() {
   const toolbar = document.getElementById('note-ink-toolbar-wrap');
   if (toolbar && S.page) toolbar.innerHTML = noteInkToolbarHTML(S.page);
@@ -2510,8 +2538,8 @@ function getNoteInkColorForTool(tool) {
 }
 
 function getNoteInkStrokeStyle(tool) {
-  if (tool === 'highlighter') return { width: 18, alpha: 0.24 };
-  return { width: 2.6, alpha: 1 };
+  if (tool === 'highlighter') return { width: NoteInk.highlighterWidth, alpha: 0.24 };
+  return { width: NoteInk.penWidth, alpha: 1 };
 }
 
 function cloneInkStrokes(strokes) {
@@ -2541,7 +2569,7 @@ function getNoteInkPoint(evt) {
   if (!surface) return null;
   const rect = surface.getBoundingClientRect();
   const x = Math.max(0, Math.min(rect.width, evt.clientX - rect.left));
-  const y = Math.max(0, Math.min(rect.height, evt.clientY - rect.top));
+  const y = Math.max(0, evt.clientY - rect.top);
   return {
     x,
     y,
@@ -2562,8 +2590,8 @@ function drawInkStroke(ctx, stroke, surfaceWidth, surfaceHeight) {
   if (stroke.tool === 'highlighter') ctx.globalCompositeOperation = 'multiply';
   if (stroke.points.length === 1) {
     const point = stroke.points[0];
-    const x = (point.xr ?? 0) * surfaceWidth;
-    const y = (point.yr ?? 0) * surfaceHeight;
+    const x = typeof point.x === 'number' ? point.x : ((point.xr ?? 0) * surfaceWidth);
+    const y = typeof point.y === 'number' ? point.y : ((point.yr ?? 0) * surfaceHeight);
     const radius = Math.max(1, ((stroke.width || style.width) * ((point.pressure || 0.5) * 0.65 + 0.35)) / 2);
     ctx.beginPath();
     ctx.arc(x, y, radius, 0, Math.PI * 2);
@@ -2574,8 +2602,8 @@ function drawInkStroke(ctx, stroke, surfaceWidth, surfaceHeight) {
   }
   ctx.beginPath();
   stroke.points.forEach((point, index) => {
-    const x = (point.xr ?? 0) * surfaceWidth;
-    const y = (point.yr ?? 0) * surfaceHeight;
+    const x = typeof point.x === 'number' ? point.x : ((point.xr ?? 0) * surfaceWidth);
+    const y = typeof point.y === 'number' ? point.y : ((point.yr ?? 0) * surfaceHeight);
     const width = Math.max(1, (stroke.width || style.width) * ((point.pressure || 0.5) * 0.65 + 0.35));
     ctx.lineWidth = width;
     if (index === 0) ctx.moveTo(x, y);
@@ -2588,12 +2616,16 @@ function drawInkStroke(ctx, stroke, surfaceWidth, surfaceHeight) {
 function redrawNoteInk() {
   const canvas = getNoteInkCanvas();
   const surface = getNoteInkSurface();
+  const editorSurface = document.getElementById('editor-surface');
   const ctx = getNoteInkContext();
   if (!canvas || !surface || !ctx || !S.page) return;
   const rect = surface.getBoundingClientRect();
   const ratio = window.devicePixelRatio || 1;
   const width = Math.max(1, Math.round(rect.width));
-  const height = Math.max(240, Math.round(surface.scrollHeight || rect.height || 240));
+  const contentHeight = Math.round(surface.scrollHeight || rect.height || 240);
+  const height = Math.max(420, Math.round(S.page.inkCanvasHeight || contentHeight));
+  if (editorSurface) editorSurface.style.minHeight = `${height}px`;
+  surface.style.minHeight = `${height}px`;
   canvas.width = Math.round(width * ratio);
   canvas.height = Math.round(height * ratio);
   canvas.style.width = `${width}px`;
@@ -2603,6 +2635,17 @@ function redrawNoteInk() {
   ensurePageInkState(S.page);
   S.page.inkStrokes.forEach(stroke => drawInkStroke(ctx, stroke, width, height));
   if (NoteInk.activeStroke) drawInkStroke(ctx, NoteInk.activeStroke, width, height);
+}
+
+function ensureNoteInkCanvasSpace(requiredY = 0) {
+  if (!S.page) return false;
+  const currentHeight = Math.max(420, Number(S.page.inkCanvasHeight) || 0);
+  const neededHeight = Math.max(currentHeight, Math.ceil(requiredY + NOTE_INK_GROWTH_THRESHOLD));
+  if (neededHeight <= currentHeight) return false;
+  S.page.inkCanvasHeight = Math.ceil(neededHeight / NOTE_INK_GROWTH_CHUNK) * NOTE_INK_GROWTH_CHUNK;
+  redrawNoteInk();
+  scheduleSave();
+  return true;
 }
 
 function finishNoteInkStroke(saveStroke = true) {
@@ -2631,6 +2674,7 @@ function handleNoteInkPointerDown(evt) {
   const surface = getNoteInkSurface();
   if (!surface) return;
   const style = getNoteInkStrokeStyle(NoteInk.tool);
+  ensureNoteInkCanvasSpace(point.y);
   NoteInk.activeStroke = {
     id: uid(),
     tool: NoteInk.tool,
@@ -2653,6 +2697,7 @@ function handleNoteInkPointerMove(evt) {
   evt.preventDefault();
   const point = getNoteInkPoint(evt);
   if (!point) return;
+  ensureNoteInkCanvasSpace(point.y);
   NoteInk.activeStroke.points.push(point);
   redrawNoteInk();
 }
@@ -2682,6 +2727,13 @@ function initNoteInkLayer() {
   const surface = getNoteInkSurface();
   const canvas = getNoteInkCanvas();
   if (!surface || !canvas) return;
+  const blocksWrap = document.getElementById('blocks-wrap');
+  const contentHeight = Math.max(
+    420,
+    Math.round(blocksWrap?.scrollHeight || 0) + 180,
+    Math.round(document.getElementById('editor-surface')?.scrollHeight || 0)
+  );
+  S.page.inkCanvasHeight = Math.max(Number(S.page.inkCanvasHeight) || 0, contentHeight);
   surface.onpointerdown = handleNoteInkPointerDown;
   surface.onpointermove = handleNoteInkPointerMove;
   surface.onpointerup = handleNoteInkPointerUp;
@@ -5262,6 +5314,329 @@ function openCollabNote(noteId, options = {}) {
 }
 
 let _collabDebounce = null;
+let _collabBoardSaveDebounce = null;
+const COLLAB_WHITEBOARD_GROWTH = 720;
+const CollabBoard = {
+  noteId: null,
+  elements: [],
+  canvasHeight: 1080,
+  canvasWidth: 1760,
+  tool: 'move',
+  draggingId: null,
+  dragOffsetX: 0,
+  dragOffsetY: 0,
+  drawingId: null,
+  activeId: null,
+  bound: false,
+};
+
+function ensureCollabWhiteboardData(board = {}) {
+  return {
+    canvasHeight: Math.max(1080, Number(board?.canvasHeight) || 1080),
+    canvasWidth: Math.max(1600, Number(board?.canvasWidth) || 1760),
+    elements: Array.isArray(board?.elements) ? board.elements : [],
+  };
+}
+
+function collabWhiteboardToolBtn(tool, label) {
+  return `<button class="collab-tb-btn${CollabBoard.tool === tool ? ' active' : ''}" onclick="setCollabWhiteboardTool('${tool}')">${label}</button>`;
+}
+
+function collabWhiteboardDefaultElement(type) {
+  const column = CollabBoard.elements.length % 3;
+  const row = Math.floor(CollabBoard.elements.length / 3);
+  const centerX = Math.round(CollabBoard.canvasWidth / 2);
+  const baseX = Math.max(120, centerX - 390 + (column * 260));
+  const baseY = 140 + (row * 190);
+  if (type === 'sticky') return { id: uid(), type, x: baseX, y: baseY, width: 190, height: 150, text: 'Untitled thought', tone: ['sun', 'mint', 'sky', 'rose'][CollabBoard.elements.length % 4] };
+  if (type === 'text') return { id: uid(), type, x: baseX, y: baseY, width: 260, height: 72, text: 'New label' };
+  if (type === 'rect') return { id: uid(), type, x: baseX, y: baseY, width: 220, height: 132, text: 'Process' };
+  if (type === 'ellipse') return { id: uid(), type, x: baseX, y: baseY, width: 220, height: 132, text: 'Decision' };
+  return { id: uid(), type: 'line', x1: baseX, y1: baseY, x2: baseX + 190, y2: baseY + 90 };
+}
+
+function setCollabWhiteboardTool(tool) {
+  CollabBoard.tool = tool;
+  renderCollabWhiteboard(collabWhiteboardSnapshot(), CollabBoard.noteId);
+}
+
+function collabWhiteboardSnapshot() {
+  return {
+    canvasHeight: CollabBoard.canvasHeight,
+    canvasWidth: CollabBoard.canvasWidth,
+    elements: JSON.parse(JSON.stringify(CollabBoard.elements || [])),
+  };
+}
+
+function collabWhiteboardMarkSaving() {
+  const status = $('collab-status');
+  if (status) {
+    status.textContent = 'Saving…';
+    status.style.color = 'var(--orange)';
+  }
+}
+
+function saveCollabWhiteboard(noteId = CollabBoard.noteId) {
+  if (!noteId) return;
+  clearTimeout(_collabBoardSaveDebounce);
+  _collabBoardSaveDebounce = setTimeout(async () => {
+    try {
+      await window.fb.update(window.fb.ref(window.fb.database, `collab/${noteId}`), {
+        whiteboard: collabWhiteboardSnapshot(),
+        updatedAt: new Date().toISOString(),
+        lastEditBy: validateStr(getDisplayName(), LIMITS.name),
+      });
+      const status = $('collab-status');
+      if (status) {
+        status.textContent = 'Live';
+        status.style.color = 'var(--green)';
+      }
+    } catch {
+      const status = $('collab-status');
+      if (status) {
+        status.textContent = 'Error';
+        status.style.color = 'var(--red)';
+      }
+    }
+  }, 180);
+}
+
+function ensureCollabWhiteboardSpace(y) {
+  const required = Math.max(0, Number(y) || 0) + 220;
+  if (required <= CollabBoard.canvasHeight) return;
+  CollabBoard.canvasHeight = Math.ceil(required / COLLAB_WHITEBOARD_GROWTH) * COLLAB_WHITEBOARD_GROWTH;
+  const stage = $('collab-whiteboard-stage');
+  if (stage) stage.style.height = `${CollabBoard.canvasHeight}px`;
+}
+
+function collabWhiteboardElementCenter(item) {
+  if (!item) return { x: 0, y: 0 };
+  if (item.type === 'line') {
+    return {
+      x: ((Number(item.x1) || 0) + (Number(item.x2) || 0)) / 2,
+      y: ((Number(item.y1) || 0) + (Number(item.y2) || 0)) / 2,
+    };
+  }
+  if (item.type === 'draw') {
+    const points = Array.isArray(item.points) ? item.points : [];
+    if (!points.length) return { x: 0, y: 0 };
+    const xs = points.map(point => Number(point.x) || 0);
+    const ys = points.map(point => Number(point.y) || 0);
+    return {
+      x: (Math.min(...xs) + Math.max(...xs)) / 2,
+      y: (Math.min(...ys) + Math.max(...ys)) / 2,
+    };
+  }
+  return {
+    x: (Number(item.x) || 0) + ((Number(item.width) || 180) / 2),
+    y: (Number(item.y) || 0) + ((Number(item.height) || 120) / 2),
+  };
+}
+
+function collabWhiteboardSelectionMarkup() {
+  const active = CollabBoard.elements.find(item => item.id === CollabBoard.activeId);
+  if (!active) return '';
+  const center = collabWhiteboardElementCenter(active);
+  return `<button class="collab-whiteboard-floating-delete" style="left:${Math.max(18, Math.round(center.x))}px;top:${Math.max(18, Math.round(center.y - 24))}px" onclick="event.stopPropagation();deleteCollabWhiteboardElement('${active.id}')" title="Delete selected item">Delete</button>`;
+}
+
+function addCollabWhiteboardElement(type) {
+  if (!CollabBoard.noteId) return;
+  const next = collabWhiteboardDefaultElement(type);
+  ensureCollabWhiteboardSpace(type === 'line' ? Math.max(next.y1, next.y2) : (next.y + (next.height || 120)));
+  CollabBoard.elements.push(next);
+  CollabBoard.activeId = next.id;
+  collabWhiteboardMarkSaving();
+  renderCollabWhiteboard(collabWhiteboardSnapshot(), CollabBoard.noteId);
+  saveCollabWhiteboard();
+}
+
+function updateCollabWhiteboardElementText(id, value) {
+  const element = CollabBoard.elements.find(item => item.id === id);
+  if (!element) return;
+  element.text = validateStr(value, LIMITS.content, '');
+  collabWhiteboardMarkSaving();
+  saveCollabWhiteboard();
+}
+
+function deleteCollabWhiteboardElement(id) {
+  CollabBoard.elements = (CollabBoard.elements || []).filter(item => item.id !== id);
+  if (CollabBoard.activeId === id) CollabBoard.activeId = null;
+  collabWhiteboardMarkSaving();
+  renderCollabWhiteboard(collabWhiteboardSnapshot(), CollabBoard.noteId);
+  saveCollabWhiteboard();
+}
+
+function collabWhiteboardSvgMarkup() {
+  const lineElements = CollabBoard.elements.filter(item => item.type === 'line');
+  const drawElements = CollabBoard.elements.filter(item => item.type === 'draw');
+  return `<svg class="collab-whiteboard-svg" viewBox="0 0 ${CollabBoard.canvasWidth} ${Math.max(1200, CollabBoard.canvasHeight)}" preserveAspectRatio="none">
+    ${lineElements.map(line => `<g class="collab-whiteboard-wire${CollabBoard.activeId === line.id ? ' is-active' : ''}" data-wb-id="${line.id}"><line x1="${line.x1}" y1="${line.y1}" x2="${line.x2}" y2="${line.y2}"></line></g>`).join('')}
+    ${drawElements.map(stroke => `<path class="collab-whiteboard-stroke${CollabBoard.activeId === stroke.id ? ' is-active' : ''}" data-wb-id="${stroke.id}" d="${stroke.path || ''}" stroke="${stroke.color || '#8f6a42'}" stroke-width="${stroke.strokeWidth || 3.5}" />`).join('')}
+  </svg>`;
+}
+
+function renderCollabWhiteboard(board, noteId) {
+  const sec = $('collab-whiteboard-section');
+  if (!sec) return;
+  const safeBoard = ensureCollabWhiteboardData(board);
+  const activeTextarea = document.activeElement?.classList?.contains('collab-whiteboard-textarea')
+    ? {
+        id: document.activeElement.closest('[data-wb-id]')?.dataset.wbId,
+        start: document.activeElement.selectionStart,
+        end: document.activeElement.selectionEnd,
+      }
+    : null;
+  if (!CollabBoard.draggingId && !CollabBoard.drawingId) {
+    CollabBoard.noteId = noteId;
+    CollabBoard.elements = JSON.parse(JSON.stringify(safeBoard.elements));
+    CollabBoard.canvasHeight = safeBoard.canvasHeight;
+    CollabBoard.canvasWidth = safeBoard.canvasWidth;
+    if (CollabBoard.activeId && !CollabBoard.elements.some(item => item.id === CollabBoard.activeId)) CollabBoard.activeId = null;
+  }
+  sec.innerHTML = `
+    <div class="collab-whiteboard-shell">
+      <div class="collab-section-head">
+        <span>${icons.collab} Whiteboard</span>
+        <span class="collab-whiteboard-meta">${CollabBoard.elements.length} items</span>
+      </div>
+      <div class="collab-whiteboard-toolbar">
+        <div class="collab-whiteboard-tools">
+          ${collabWhiteboardToolBtn('move', 'Move')}
+          ${collabWhiteboardToolBtn('draw', 'Draw')}
+          <button class="collab-tb-btn" onclick="addCollabWhiteboardElement('sticky')">Sticky</button>
+          <button class="collab-tb-btn" onclick="addCollabWhiteboardElement('text')">Text</button>
+          <button class="collab-tb-btn" onclick="addCollabWhiteboardElement('rect')">Rect</button>
+          <button class="collab-tb-btn" onclick="addCollabWhiteboardElement('ellipse')">Circle</button>
+          <button class="collab-tb-btn" onclick="addCollabWhiteboardElement('line')">Line</button>
+        </div>
+        <div class="collab-whiteboard-meta">Centered canvas, drag to arrange, click a stroke to delete it</div>
+      </div>
+      <div class="collab-whiteboard-viewport" id="collab-whiteboard-viewport">
+        <div class="collab-whiteboard-stage-wrap">
+          <div class="collab-whiteboard-stage${CollabBoard.tool === 'draw' ? ' draw-mode' : ''}" id="collab-whiteboard-stage" style="width:${CollabBoard.canvasWidth}px;height:${CollabBoard.canvasHeight}px">
+            ${collabWhiteboardSvgMarkup()}
+            ${collabWhiteboardSelectionMarkup()}
+            ${CollabBoard.elements.filter(item => item.type !== 'line' && item.type !== 'draw').map(item => {
+            const classes = ['collab-whiteboard-node', CollabBoard.activeId === item.id ? 'is-active' : '', item.type === 'sticky' ? `sticky ${item.tone || 'sun'}` : '', item.type === 'text' ? 'text' : '', item.type === 'rect' ? 'rect' : '', item.type === 'ellipse' ? 'ellipse' : ''].filter(Boolean).join(' ');
+            return `<div class="${classes}" data-wb-id="${item.id}" style="left:${item.x}px;top:${item.y}px;width:${item.width || 180}px;height:${item.height || 120}px">
+              <button class="collab-whiteboard-delete" onclick="event.stopPropagation();deleteCollabWhiteboardElement('${item.id}')" title="Delete">×</button>
+              <textarea class="collab-whiteboard-textarea" oninput="updateCollabWhiteboardElementText('${item.id}', this.value)">${esc(item.text || '')}</textarea>
+            </div>`;
+          }).join('')}
+          </div>
+        </div>
+      </div>
+    </div>`;
+  if (activeTextarea?.id) {
+    const nextTextarea = sec.querySelector(`[data-wb-id="${activeTextarea.id}"] .collab-whiteboard-textarea`);
+    if (nextTextarea) {
+      nextTextarea.focus();
+      nextTextarea.setSelectionRange(activeTextarea.start, activeTextarea.end);
+    }
+  }
+  initCollabWhiteboardInteractions();
+}
+
+function collabWhiteboardPoint(evt) {
+  const stage = $('collab-whiteboard-stage');
+  const viewport = $('collab-whiteboard-viewport');
+  if (!stage || !viewport) return null;
+  const rect = stage.getBoundingClientRect();
+  return {
+    x: Math.max(0, evt.clientX - rect.left + viewport.scrollLeft),
+    y: Math.max(0, evt.clientY - rect.top + viewport.scrollTop),
+  };
+}
+
+function initCollabWhiteboardInteractions() {
+  const stage = $('collab-whiteboard-stage');
+  if (!stage || stage.dataset.bound === 'true') return;
+  stage.dataset.bound = 'true';
+  stage.addEventListener('pointerdown', evt => {
+    const point = collabWhiteboardPoint(evt);
+    if (!point) return;
+    const node = evt.target.closest('[data-wb-id]');
+    if (CollabBoard.tool === 'draw' && !evt.target.closest('.collab-whiteboard-node') && !evt.target.closest('button')) {
+      evt.preventDefault();
+      const stroke = { id: uid(), type: 'draw', color: '#8f6a42', strokeWidth: 3.5, points: [point], path: `M ${point.x} ${point.y}` };
+      CollabBoard.drawingId = stroke.id;
+      CollabBoard.activeId = stroke.id;
+      CollabBoard.elements.push(stroke);
+      ensureCollabWhiteboardSpace(point.y);
+      collabWhiteboardMarkSaving();
+      renderCollabWhiteboard(collabWhiteboardSnapshot(), CollabBoard.noteId);
+      return;
+    }
+    if (!node && !evt.target.closest('button')) {
+      if (CollabBoard.activeId) {
+        CollabBoard.activeId = null;
+        renderCollabWhiteboard(collabWhiteboardSnapshot(), CollabBoard.noteId);
+      }
+      return;
+    }
+    if (!node || evt.target.closest('textarea') || evt.target.closest('button')) return;
+    const id = node.dataset.wbId;
+    const element = CollabBoard.elements.find(item => item.id === id);
+    if (!element) return;
+    evt.preventDefault();
+    CollabBoard.activeId = id;
+    if (element.type === 'draw') {
+      renderCollabWhiteboard(collabWhiteboardSnapshot(), CollabBoard.noteId);
+      return;
+    }
+    CollabBoard.draggingId = id;
+    if (element.type === 'line') {
+      CollabBoard.dragOffsetX = point.x - Math.min(element.x1, element.x2);
+      CollabBoard.dragOffsetY = point.y - Math.min(element.y1, element.y2);
+    } else {
+      CollabBoard.dragOffsetX = point.x - (element.x || 0);
+      CollabBoard.dragOffsetY = point.y - (element.y || 0);
+    }
+  });
+  if (CollabBoard.bound) return;
+  CollabBoard.bound = true;
+  window.addEventListener('pointermove', evt => {
+    const point = collabWhiteboardPoint(evt);
+    if (!point) return;
+    if (CollabBoard.drawingId) {
+      const stroke = CollabBoard.elements.find(item => item.id === CollabBoard.drawingId);
+      if (!stroke) return;
+      stroke.points.push(point);
+      stroke.path = stroke.points.map((p, index) => `${index === 0 ? 'M' : 'L'} ${Math.round(p.x)} ${Math.round(p.y)}`).join(' ');
+      ensureCollabWhiteboardSpace(point.y);
+      renderCollabWhiteboard(collabWhiteboardSnapshot(), CollabBoard.noteId);
+      return;
+    }
+    if (!CollabBoard.draggingId) return;
+    const element = CollabBoard.elements.find(item => item.id === CollabBoard.draggingId);
+    if (!element) return;
+    if (element.type === 'line') {
+      const width = element.x2 - element.x1;
+      const height = element.y2 - element.y1;
+      const minX = Math.max(0, point.x - CollabBoard.dragOffsetX);
+      const minY = Math.max(0, point.y - CollabBoard.dragOffsetY);
+      element.x1 = minX;
+      element.y1 = minY;
+      element.x2 = minX + width;
+      element.y2 = minY + height;
+      ensureCollabWhiteboardSpace(Math.max(element.y1, element.y2));
+    } else {
+      element.x = Math.max(0, point.x - CollabBoard.dragOffsetX);
+      element.y = Math.max(0, point.y - CollabBoard.dragOffsetY);
+      ensureCollabWhiteboardSpace(element.y + (element.height || 120));
+    }
+    collabWhiteboardMarkSaving();
+    renderCollabWhiteboard(collabWhiteboardSnapshot(), CollabBoard.noteId);
+  });
+  window.addEventListener('pointerup', () => {
+    if (!CollabBoard.draggingId && !CollabBoard.drawingId) return;
+    CollabBoard.draggingId = null;
+    CollabBoard.drawingId = null;
+    renderCollabWhiteboard(collabWhiteboardSnapshot(), CollabBoard.noteId);
+    saveCollabWhiteboard();
+  });
+}
 
 function renderCollabNote(c) {
   c.innerHTML = `
@@ -5285,6 +5660,8 @@ function renderCollabNote(c) {
       <div id="collab-tables-section" style="margin-top:24px"></div>
       <!-- Images section -->
       <div id="collab-images-section" style="margin-top:16px"></div>
+      <!-- Whiteboard section -->
+      <div id="collab-whiteboard-section" style="margin-top:20px"></div>
     </div>`;
   setupCollabListeners(S.activeCollabNote);
 }
@@ -5328,6 +5705,8 @@ function setupCollabListeners(noteId) {
     renderCollabTables(note.tables || {}, noteId);
     // Render images
     renderCollabImages(note.images || [], noteId);
+    // Render whiteboard
+    renderCollabWhiteboard(note.whiteboard || {}, noteId);
   });
 
   S.presenceListener = window.fb.onValue(presenceListRef, (snap) => {
