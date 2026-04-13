@@ -2466,6 +2466,11 @@ const NOTE_INK_SIZES = {
     { id: 'medium', label: 'Medium', width: 18 },
     { id: 'broad', label: 'Broad', width: 24 },
   ],
+  eraser: [
+    { id: 'small', label: 'Small', width: 16 },
+    { id: 'medium', label: 'Medium', width: 24 },
+    { id: 'broad', label: 'Broad', width: 34 },
+  ],
 };
 const NOTE_INK_GROWTH_CHUNK = 720;
 const NOTE_INK_GROWTH_THRESHOLD = 180;
@@ -2482,6 +2487,7 @@ function noteInkToolbarHTML(page) {
     <div class="note-ink-tools">
       <button class="note-ink-tool${NoteInk.tool === 'pen' ? ' active' : ''}" onclick="setNoteInkTool('pen')">Pen</button>
       <button class="note-ink-tool${NoteInk.tool === 'highlighter' ? ' active' : ''}" onclick="setNoteInkTool('highlighter')">Highlighter</button>
+      <button class="note-ink-tool${NoteInk.tool === 'eraser' ? ' active' : ''}" onclick="setNoteInkTool('eraser')">Stroke Eraser</button>
     </div>
     <div class="note-ink-tools">
       ${sizes.map(size => `<button class="note-ink-tool${Math.abs(activeWidth - size.width) < 0.05 ? ' active' : ''}" onclick="setNoteInkSize(${size.width})">${size.label}</button>`).join('')}
@@ -2511,7 +2517,8 @@ function toggleNoteInkMode(force) {
 }
 
 function setNoteInkTool(tool) {
-  NoteInk.tool = tool === 'highlighter' ? 'highlighter' : 'pen';
+  if (tool === 'highlighter' || tool === 'eraser') NoteInk.tool = tool;
+  else NoteInk.tool = 'pen';
   renderNoteInkToolbar();
 }
 
@@ -2539,7 +2546,35 @@ function getNoteInkColorForTool(tool) {
 
 function getNoteInkStrokeStyle(tool) {
   if (tool === 'highlighter') return { width: NoteInk.highlighterWidth, alpha: 0.24 };
+  if (tool === 'eraser') return { width: 24, alpha: 1 };
   return { width: NoteInk.penWidth, alpha: 1 };
+}
+
+function noteInkStrokeHit(stroke, point, radius, surfaceWidth, surfaceHeight) {
+  if (!stroke?.points?.length || !point) return false;
+  const hitRadius = Math.max(8, Number(radius) || 0);
+  for (const p of stroke.points) {
+    const x = typeof p.x === 'number' ? p.x : ((p.xr ?? 0) * surfaceWidth);
+    const y = typeof p.y === 'number' ? p.y : ((p.yr ?? 0) * surfaceHeight);
+    if (Math.hypot(point.x - x, point.y - y) <= hitRadius) return true;
+  }
+  return false;
+}
+
+function eraseNoteInkAtPoint(point) {
+  if (!S.page) return false;
+  ensurePageInkState(S.page);
+  const surface = getNoteInkSurface();
+  if (!surface) return false;
+  const rect = surface.getBoundingClientRect();
+  const width = Math.max(1, Math.round(rect.width || 1));
+  const height = Math.max(1, Math.round(surface.scrollHeight || rect.height || 1));
+  const radius = Math.max(10, NoteInk.penWidth * 4);
+  const before = S.page.inkStrokes.length;
+  S.page.inkStrokes = S.page.inkStrokes.filter(stroke => !noteInkStrokeHit(stroke, point, radius, width, height));
+  const changed = S.page.inkStrokes.length !== before;
+  if (changed) scheduleSave();
+  return changed;
 }
 
 function cloneInkStrokes(strokes) {
@@ -2674,6 +2709,16 @@ function handleNoteInkPointerDown(evt) {
   const surface = getNoteInkSurface();
   if (!surface) return;
   const style = getNoteInkStrokeStyle(NoteInk.tool);
+  if (NoteInk.tool === 'eraser') {
+    NoteInk.pointerId = evt.pointerId;
+    NoteInk.drawing = true;
+    surface.setPointerCapture?.(evt.pointerId);
+    if (eraseNoteInkAtPoint(point)) {
+      redrawNoteInk();
+      renderNoteInkToolbar();
+    }
+    return;
+  }
   ensureNoteInkCanvasSpace(point.y);
   NoteInk.activeStroke = {
     id: uid(),
@@ -2693,7 +2738,17 @@ function handleNoteInkPointerDown(evt) {
 function handleNoteInkPointerMove(evt) {
   if (!NoteInk.enabled) return;
   if (evt.pointerType === 'touch') return;
-  if (!NoteInk.drawing || evt.pointerId !== NoteInk.pointerId || !NoteInk.activeStroke) return;
+  if (!NoteInk.drawing || evt.pointerId !== NoteInk.pointerId) return;
+  if (NoteInk.tool === 'eraser') {
+    const point = getNoteInkPoint(evt);
+    if (!point) return;
+    if (eraseNoteInkAtPoint(point)) {
+      redrawNoteInk();
+      renderNoteInkToolbar();
+    }
+    return;
+  }
+  if (!NoteInk.activeStroke) return;
   evt.preventDefault();
   const point = getNoteInkPoint(evt);
   if (!point) return;
@@ -2707,6 +2762,13 @@ function handleNoteInkPointerUp(evt) {
   if (evt.pointerType === 'touch') return;
   if (!NoteInk.drawing || evt.pointerId !== NoteInk.pointerId) return;
   evt.preventDefault();
+  if (NoteInk.tool === 'eraser') {
+    NoteInk.pointerId = null;
+    NoteInk.drawing = false;
+    redrawNoteInk();
+    renderNoteInkToolbar();
+    return;
+  }
   finishNoteInkStroke(true);
 }
 
@@ -2714,6 +2776,13 @@ function handleNoteInkPointerCancel(evt) {
   if (!NoteInk.enabled) return;
   if (evt.pointerType === 'touch') return;
   if (evt.pointerId !== NoteInk.pointerId) return;
+  if (NoteInk.tool === 'eraser') {
+    NoteInk.pointerId = null;
+    NoteInk.drawing = false;
+    redrawNoteInk();
+    renderNoteInkToolbar();
+    return;
+  }
   finishNoteInkStroke(false);
 }
 
@@ -5504,6 +5573,7 @@ function renderCollabWhiteboard(board, noteId) {
         <div class="collab-whiteboard-tools">
           ${collabWhiteboardToolBtn('move', 'Move')}
           ${collabWhiteboardToolBtn('draw', 'Draw')}
+          ${collabWhiteboardToolBtn('erase', 'Stroke Eraser')}
           <button class="collab-tb-btn" onclick="addCollabWhiteboardElement('sticky')">Sticky</button>
           <button class="collab-tb-btn" onclick="addCollabWhiteboardElement('text')">Text</button>
           <button class="collab-tb-btn" onclick="addCollabWhiteboardElement('rect')">Rect</button>
@@ -5549,6 +5619,43 @@ function collabWhiteboardPoint(evt) {
   };
 }
 
+function collabStrokeDistance(point, stroke) {
+  if (!point || !stroke) return Infinity;
+  if (stroke.type === 'line') {
+    const x1 = Number(stroke.x1) || 0;
+    const y1 = Number(stroke.y1) || 0;
+    const x2 = Number(stroke.x2) || 0;
+    const y2 = Number(stroke.y2) || 0;
+    const dx = x2 - x1;
+    const dy = y2 - y1;
+    const lenSq = (dx * dx) + (dy * dy) || 1;
+    const t = Math.max(0, Math.min(1, (((point.x - x1) * dx) + ((point.y - y1) * dy)) / lenSq));
+    const px = x1 + (t * dx);
+    const py = y1 + (t * dy);
+    return Math.hypot(point.x - px, point.y - py);
+  }
+  if (stroke.type === 'draw' && Array.isArray(stroke.points)) {
+    let min = Infinity;
+    stroke.points.forEach(p => {
+      const d = Math.hypot(point.x - (Number(p.x) || 0), point.y - (Number(p.y) || 0));
+      if (d < min) min = d;
+    });
+    return min;
+  }
+  return Infinity;
+}
+
+function collabWhiteboardEraseStrokeAt(point) {
+  const candidates = (CollabBoard.elements || [])
+    .filter(item => item.type === 'draw' || item.type === 'line')
+    .map(item => ({ item, dist: collabStrokeDistance(point, item) }))
+    .sort((a, b) => a.dist - b.dist);
+  const hit = candidates[0];
+  if (!hit || hit.dist > 20) return false;
+  deleteCollabWhiteboardElement(hit.item.id);
+  return true;
+}
+
 function initCollabWhiteboardInteractions() {
   const stage = $('collab-whiteboard-stage');
   if (!stage || stage.dataset.bound === 'true') return;
@@ -5557,6 +5664,11 @@ function initCollabWhiteboardInteractions() {
     const point = collabWhiteboardPoint(evt);
     if (!point) return;
     const node = evt.target.closest('[data-wb-id]');
+    if (CollabBoard.tool === 'erase' && !evt.target.closest('button') && !evt.target.closest('textarea')) {
+      evt.preventDefault();
+      collabWhiteboardEraseStrokeAt(point);
+      return;
+    }
     if (CollabBoard.tool === 'draw' && !evt.target.closest('.collab-whiteboard-node') && !evt.target.closest('button')) {
       evt.preventDefault();
       const stroke = { id: uid(), type: 'draw', color: '#8f6a42', strokeWidth: 3.5, points: [point], path: `M ${point.x} ${point.y}` };

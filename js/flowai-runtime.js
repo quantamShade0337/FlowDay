@@ -515,6 +515,30 @@
     return score + (chunk.boost || 0);
   }
 
+  function detectTopicHint(message) {
+    const text = String(message || '').toLowerCase().trim();
+    if (!text) return '';
+    const inMatch = text.match(/\bin\s+the\s+([a-z0-9][a-z0-9\s_-]{1,40})\b/);
+    if (inMatch) return inMatch[1].trim();
+    const aboutMatch = text.match(/\babout\s+([a-z0-9][a-z0-9\s_-]{1,40})\b/);
+    if (aboutMatch) return aboutMatch[1].trim();
+    return '';
+  }
+
+  function capChunksBySource(chunks, perSourceCap = 2, totalCap = DEFAULT_LIMITS.retrievalTopK) {
+    const counts = new Map();
+    const picked = [];
+    for (const chunk of chunks) {
+      const key = `${chunk.sourceType}:${chunk.sourceId}`;
+      const count = counts.get(key) || 0;
+      if (count >= perSourceCap) continue;
+      counts.set(key, count + 1);
+      picked.push(chunk);
+      if (picked.length >= totalCap) break;
+    }
+    return picked;
+  }
+
   function classifyIntent(message) {
     const text = String(message || '').toLowerCase();
     if (/\b(mock exam|practice test|practice exam|quiz me|test me)\b/.test(text)) return 'mock_exam';
@@ -532,9 +556,14 @@
   async function retrieveRelevantChunks(appState, message, limits) {
     const allChunks = await syncWorkspaceIndex(appState, limits);
     const queryTokens = tokenize(message);
+    const topicHint = detectTopicHint(message);
     const scored = allChunks.map(chunk => ({
       chunk,
-      lexical: lexicalScore(queryTokens, chunk),
+      lexical: lexicalScore(queryTokens, chunk) + (
+        topicHint && String(chunk.title || '').toLowerCase().includes(topicHint)
+          ? 1.35
+          : 0
+      ),
     })).sort((a, b) => b.lexical - a.lexical);
 
     const prefiltered = scored.slice(0, limits?.lexicalPrefilter || DEFAULT_LIMITS.lexicalPrefilter).map(item => item.chunk);
@@ -542,19 +571,27 @@
       const queryEmbedding = await embedText(message);
       if (queryEmbedding?.length) {
         await ensureChunkEmbeddings(prefiltered);
-        return prefiltered
+        const ranked = prefiltered
           .map(chunk => ({
             ...chunk,
-            score: 0.62 * cosineSimilarity(queryEmbedding, chunk.embedding || []) + 0.38 * lexicalScore(queryTokens, chunk),
+            score: 0.62 * cosineSimilarity(queryEmbedding, chunk.embedding || []) + 0.38 * (
+              lexicalScore(queryTokens, chunk) + (
+                topicHint && String(chunk.title || '').toLowerCase().includes(topicHint)
+                  ? 1.35
+                  : 0
+              )
+            ),
           }))
           .sort((a, b) => b.score - a.score)
-          .slice(0, limits?.retrievalTopK || DEFAULT_LIMITS.retrievalTopK);
+          .slice(0, Math.max((limits?.retrievalTopK || DEFAULT_LIMITS.retrievalTopK) * 2, 8));
+        return capChunksBySource(ranked, 2, limits?.retrievalTopK || DEFAULT_LIMITS.retrievalTopK);
       }
     }
 
-    return scored
+    const lexicalOnly = scored
       .slice(0, limits?.retrievalTopK || DEFAULT_LIMITS.retrievalTopK)
       .map(item => ({ ...item.chunk, score: item.lexical }));
+    return capChunksBySource(lexicalOnly, 2, limits?.retrievalTopK || DEFAULT_LIMITS.retrievalTopK);
   }
 
   async function getMemoryState() {
@@ -892,9 +929,14 @@
     return deduped.slice(0, 4);
   }
 
+  function compactSnippetList(chunks, maxItems = 4) {
+    const picked = capChunksBySource(chunks || [], 1, maxItems);
+    return picked.map(chunk => `- ${chunk.title}: ${clampText(chunk.text, 140)}`).join('\n');
+  }
+
   function buildReducedAnswer(packet) {
     const refs = sourceRefsFromChunks(packet.retrievedChunks);
-    const snippets = packet.retrievedChunks.map(chunk => `- ${chunk.title}: ${clampText(chunk.text, 180)}`).join('\n');
+    const snippets = compactSnippetList(packet.retrievedChunks, 4);
     const sessionSummary = packet.memory.session_summary ? `Recent context: ${packet.memory.session_summary}\n` : '';
     let answer = '';
 
@@ -1112,9 +1154,10 @@
       .filter((token, index, arr) => arr.indexOf(token) === index)
       .slice(0, 8);
     await setMeta('memory-recent-topics', recentTopics);
+    const answerSummary = clampText(String(result.answer || '').replace(/\s+/g, ' ').trim(), 220);
     await setMeta('memory-session-summary', clampText([
       ...recentUserMessages.slice(-2),
-      result.answer,
+      answerSummary,
     ].join(' | '), 500));
     return getMemoryState();
   }

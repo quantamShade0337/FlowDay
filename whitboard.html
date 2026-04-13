@@ -59,7 +59,7 @@
   <script>
     if (!window.location.pathname.startsWith('/app/')) {
       const target = `/app/collab${window.location.search || ''}${window.location.hash || ''}`;
-      history.replaceState({ flowday: true, entry: 'whitboard' }, '', target);
+      history.replaceState({ flowday: true, entry: 'whiteboard' }, '', target);
     }
   </script>
   <script src="/js/flowai-runtime.js"></script>
