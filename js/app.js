@@ -8421,6 +8421,7 @@ const AI = {
 
 // ─── AI Config ───────────────────────────────────────────────
 const LEGACY_WORKER_URL = 'https://flowday-ai-proxy.ethan-sohyt.workers.dev';
+const FLOWAI_SESSIONS_KEY = 'flowai_chat_sessions_v1';
 
 function normalizeWorkerBaseUrl(value) {
   return String(value || '').trim().replace(/\/+$/, '');
@@ -8445,6 +8446,28 @@ function hasAIConfig() {
 
 function getFlowAIRuntime() {
   return window.FlowAIRuntime || null;
+}
+
+function flowaiLoadSessionsFromStorage() {
+  if (AI._flowaiSessionsHydrated) return;
+  AI._flowaiSessionsHydrated = true;
+  try {
+    const raw = localStorage.getItem(FLOWAI_SESSIONS_KEY);
+    const parsed = raw ? JSON.parse(raw) : [];
+    AI.chatSessions = Array.isArray(parsed)
+      ? parsed
+          .filter(s => s && typeof s.id === 'string' && Array.isArray(s.messages))
+          .slice(0, 30)
+      : [];
+  } catch (_) {
+    AI.chatSessions = [];
+  }
+}
+
+function flowaiPersistSessions() {
+  try {
+    localStorage.setItem(FLOWAI_SESSIONS_KEY, JSON.stringify((AI.chatSessions || []).slice(0, 30)));
+  } catch (_) {}
 }
 
 function getFlowAIModelHealth() {
@@ -8649,6 +8672,33 @@ async function runFlowAILocalRequest(options) {
   return runtime.generate(request);
 }
 
+function flowaiIsWeakLocalResult(result) {
+  const answer = String(result?.answer || '').trim();
+  const lowConfidence = String(result?.confidenceHint || '').toLowerCase() === 'low';
+  const weakPatterns = [
+    'i could not find',
+    'i do not have enough workspace context',
+    'try mentioning the note',
+    'context is weak',
+  ];
+  return !answer || lowConfidence || weakPatterns.some(pattern => answer.toLowerCase().includes(pattern));
+}
+
+async function flowaiRefineLocalAnswer(msg, history) {
+  const refinementPrompt = `User asked: ${msg}\n\nGive the most helpful direct answer you can using workspace context if available. If context is missing, provide a concise general answer and then ask one clarifying follow-up question.`;
+  const refined = await runFlowAILocalRequest({
+    intent: 'qa',
+    history,
+    message: refinementPrompt,
+    limits: {
+      retrievalTopK: 10,
+      maxContextChars: 4200,
+      outputTokens: 300,
+    },
+  });
+  return refined || null;
+}
+
 function renderFlowAIResultCard(label, result, continueAction) {
   const refsHtml = Array.isArray(result?.sourceRefs) && result.sourceRefs.length
     ? `<div style="margin-top:10px;display:flex;flex-wrap:wrap;gap:6px">${result.sourceRefs.map(ref => `<span style="font-size:11px;padding:4px 8px;border-radius:999px;background:var(--bg-sidebar);border:1px solid var(--border);color:var(--text-muted)">${esc(ref.title || ref.sourceType)}</span>`).join('')}</div>`
@@ -8717,6 +8767,19 @@ function flowaiSuggestionToActionPayload(message, action) {
         duration: payload.duration || '30 min',
         questions: Array.isArray(payload.questions) ? payload.questions : [],
       };
+    case 'start_timer':
+      return { type: 'startTimer' };
+    case 'stop_timer':
+      return { type: 'stopTimer' };
+    case 'reset_timer':
+      return { type: 'resetTimer' };
+    case 'complete_task': {
+      const fallbackTask = (S.tasks || []).find(task => !task.completed);
+      return {
+        type: 'completeTask',
+        id: payload.taskId || fallbackTask?.id || '',
+      };
+    }
     default:
       return null;
   }
@@ -9641,6 +9704,7 @@ function renderAIFlowAITab(panel) {
   panel.style.overflow = 'hidden';
 
   // Ensure session storage exists
+  flowaiLoadSessionsFromStorage();
   if (!AI.chatSessions) AI.chatSessions = [];
   if (!AI.activeChatId && AI.chatHistory?.length) {
     const sid = 'sess_' + Date.now();
@@ -9687,10 +9751,10 @@ function renderAIFlowAITab(panel) {
 
     ${therapistMode ? `<div class="therapist-header">
       <div style="display:flex;align-items:center;gap:8px;flex:1">
-        <div style="width:32px;height:32px;border-radius:50%;background:linear-gradient(135deg,var(--purple),#9266c0);display:flex;align-items:center;justify-content:center;color:#fff;font-size:14px">🫂</div>
+        <div style="width:32px;height:32px;border-radius:50%;background:linear-gradient(135deg,var(--purple),var(--flowai-therapist-grad-end));display:flex;align-items:center;justify-content:center;color:#fff;font-size:14px">🫂</div>
         <div>
           <div class="therapist-name">FlowAI · Therapist Mode</div>
-          <div class="therapist-sub">A safe, supportive space. Everything stays here.</div>
+          <div class="therapist-sub">A safe, supportive space on this device and account.</div>
         </div>
       </div>
       <span class="therapist-badge">Private</span>
@@ -9713,7 +9777,7 @@ function renderAIFlowAITab(panel) {
         <div class="flowai-chat-messages" id="flowai-msgs">
           ${history.length === 0 ? `
             <div class="flowai-welcome">
-              <div class="flowai-welcome-avatar" style="${therapistMode?'background:linear-gradient(135deg,var(--purple),#9266c0)':''}">
+              <div class="flowai-welcome-avatar" style="${therapistMode?'background:linear-gradient(135deg,var(--purple),var(--flowai-therapist-grad-end))':''}">
                 ${therapistMode
                   ? `<svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M20.84 4.61a5.5 5.5 0 0 0-7.78 0L12 5.67l-1.06-1.06a5.5 5.5 0 0 0-7.78 7.78l1.06 1.06L12 21.23l7.78-7.78 1.06-1.06a5.5 5.5 0 0 0 0-7.78z"/></svg>`
                   : `<svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M9.5 2A2.5 2.5 0 0 1 12 4.5v15a2.5 2.5 0 0 1-4.96-.46 2.5 2.5 0 0 1-2.96-3.08 3 3 0 0 1-.34-5.58 2.5 2.5 0 0 1 1.32-4.24 2.5 2.5 0 0 1 1.98-3A2.5 2.5 0 0 1 9.5 2z"/><path d="M14.5 2A2.5 2.5 0 0 0 12 4.5v15a2.5 2.5 0 0 0 4.96-.46 2.5 2.5 0 0 0 2.96-3.08 3 3 0 0 0 .34-5.58 2.5 2.5 0 0 0-1.32-4.24 2.5 2.5 0 0 0-1.98-3A2.5 2.5 0 0 0 14.5 2z"/></svg>`}
@@ -9730,11 +9794,11 @@ function renderAIFlowAITab(panel) {
               </div>
               <div class="flowai-chips">
                 ${therapistMode ? `
-                  <button class="flowai-chip" style="border-color:rgba(107,78,138,.3);color:var(--purple)" onclick="flowaiSend('I am feeling really stressed and overwhelmed right now')">I'm feeling overwhelmed</button>
-                  <button class="flowai-chip" style="border-color:rgba(107,78,138,.3);color:var(--purple)" onclick="flowaiSend('I have been struggling with anxiety about my exams')">Exam anxiety</button>
-                  <button class="flowai-chip" style="border-color:rgba(107,78,138,.3);color:var(--purple)" onclick="flowaiSend('I am having trouble sleeping and focusing')">Sleep & focus issues</button>
-                  <button class="flowai-chip" style="border-color:rgba(107,78,138,.3);color:var(--purple)" onclick="flowaiSend('I just need someone to talk to right now')">I need to talk</button>
-                  <button class="flowai-chip" style="border-color:rgba(107,78,138,.3);color:var(--purple)" onclick="flowaiSend('Help me with breathing exercises to calm down')">Calm me down</button>
+                  <button class="flowai-chip flowai-chip-therapist" onclick="flowaiSend('I am feeling really stressed and overwhelmed right now')">I'm feeling overwhelmed</button>
+                  <button class="flowai-chip flowai-chip-therapist" onclick="flowaiSend('I have been struggling with anxiety about my exams')">Exam anxiety</button>
+                  <button class="flowai-chip flowai-chip-therapist" onclick="flowaiSend('I am having trouble sleeping and focusing')">Sleep & focus issues</button>
+                  <button class="flowai-chip flowai-chip-therapist" onclick="flowaiSend('I just need someone to talk to right now')">I need to talk</button>
+                  <button class="flowai-chip flowai-chip-therapist" onclick="flowaiSend('Help me with breathing exercises to calm down')">Calm me down</button>
                 ` : `
                   <button class="flowai-chip" onclick="flowaiSend('How is my day looking?')">How's my day?</button>
                   <button class="flowai-chip" onclick="flowaiSend('What tasks should I focus on today?')">What to focus on?</button>
@@ -9756,7 +9820,7 @@ function renderAIFlowAITab(panel) {
             onkeydown="if(event.key==='Enter'&&!event.shiftKey){event.preventDefault();flowaiSend();}"
             oninput="this.style.height='auto';this.style.height=Math.min(this.scrollHeight,140)+'px'"
           ></textarea>
-          <button class="flowai-send-btn" onclick="flowaiSend()" id="flowai-send" style="${therapistMode?'background:linear-gradient(135deg,var(--purple),#9266c0)':''}">
+          <button class="flowai-send-btn" onclick="flowaiSend()" id="flowai-send" style="${therapistMode?'background:linear-gradient(135deg,var(--purple),var(--flowai-therapist-grad-end))':''}">
             <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><line x1="22" y1="2" x2="11" y2="13"/><polygon points="22 2 15 22 11 13 2 9 22 2"/></svg>
           </button>
         </div>
@@ -9800,6 +9864,7 @@ function flowaiLoadSession(id) {
 function flowaiDeleteSession(id) {
   AI.chatSessions = (AI.chatSessions || []).filter(s => s.id !== id);
   if (AI.activeChatId === id) { AI.activeChatId = null; AI.chatHistory = []; }
+  flowaiPersistSessions();
   renderAIPanel();
 }
 
@@ -9861,13 +9926,14 @@ function _flowaiSaveCurrentSession() {
   }
   // Keep max 30 sessions
   if (AI.chatSessions.length > 30) AI.chatSessions = AI.chatSessions.slice(0, 30);
+  flowaiPersistSessions();
 }
 
 function renderFlowAIMessage(m, therapistMode, idx) {
   const isAI = m.role === 'assistant';
   const bubbleContent = markdownToHtml(esc(m.content));
-  const avStyle = therapistMode && isAI ? 'background:linear-gradient(135deg,var(--purple),#9266c0)' : '';
-  const bubbleExtra = therapistMode && isAI ? 'style="background:linear-gradient(135deg,rgba(107,78,138,.08),rgba(107,78,138,.04));border-color:rgba(107,78,138,.2)"' : '';
+  const avStyle = therapistMode && isAI ? 'background:linear-gradient(135deg,var(--purple),var(--flowai-therapist-grad-end))' : '';
+  const bubbleExtra = therapistMode && isAI ? 'style="background:linear-gradient(135deg,var(--flowai-therapist-bubble),color-mix(in srgb, var(--flowai-therapist-bubble) 65%, transparent 35%));border-color:color-mix(in srgb, var(--purple) 32%, var(--border) 68%)"' : '';
 
   let confirmHtml = '';
   if (isAI && m.confirmations && m.confirmations.length) {
@@ -9913,13 +9979,20 @@ function renderFlowAIMessage(m, therapistMode, idx) {
     </div>`;
   }
 
+  let confidenceHtml = '';
+  if (isAI && m.confidenceHint) {
+    const hint = String(m.confidenceHint).toLowerCase();
+    const level = ['high', 'medium', 'low'].includes(hint) ? hint : 'medium';
+    confidenceHtml = `<div class="flowai-confidence-badge ${level}">Confidence: ${esc(level)}</div>`;
+  }
+
   return `<div class="flowai-msg flowai-msg-${m.role}">
     ${isAI ? `<div class="flowai-msg-av" style="${avStyle}">
       ${therapistMode
         ? `<svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M20.84 4.61a5.5 5.5 0 0 0-7.78 0L12 5.67l-1.06-1.06a5.5 5.5 0 0 0-7.78 7.78l1.06 1.06L12 21.23l7.78-7.78 1.06-1.06a5.5 5.5 0 0 0 0-7.78z"/></svg>`
         : `<svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9.5 2A2.5 2.5 0 0 1 12 4.5v15a2.5 2.5 0 0 1-4.96-.46 2.5 2.5 0 0 1-2.96-3.08 3 3 0 0 1-.34-5.58 2.5 2.5 0 0 1 1.32-4.24 2.5 2.5 0 0 1 1.98-3A2.5 2.5 0 0 1 9.5 2z"/><path d="M14.5 2A2.5 2.5 0 0 0 12 4.5v15a2.5 2.5 0 0 0 4.96-.46 2.5 2.5 0 0 0 2.96-3.08 3 3 0 0 0 .34-5.58 2.5 2.5 0 0 0-1.32-4.24 2.5 2.5 0 0 0-1.98-3A2.5 2.5 0 0 0 14.5 2z"/></svg>`}
     </div>` : ''}
-    <div class="flowai-bubble" ${bubbleExtra}>${bubbleContent}${refsHtml}${suggestedHtml}${confirmHtml}</div>
+    <div class="flowai-bubble" ${bubbleExtra}>${bubbleContent}${refsHtml}${suggestedHtml}${confirmHtml}${confidenceHtml}</div>
   </div>`;
 }
 
@@ -9935,6 +10008,7 @@ Your role in this mode:
 - Always validate feelings first before offering any practical suggestions.
 - Never minimise or dismiss what the student is feeling. "I understand" isn't enough — reflect their specific words back.
 - Use gentle, warm language. Short paragraphs. No bullet points unless they help ground the person.
+- Sound like a real supportive person: use natural phrasing and contractions, not robotic wording.
 - If someone shows signs of serious distress, self-harm, or crisis, gently and compassionately encourage them to speak to a trusted adult, counsellor, or call a helpline. Do not handle crises alone.
 - You can suggest grounding exercises (5-4-3-2-1 technique), breathing exercises, journaling prompts, or short mindfulness moments.
 - After listening and validating, you may offer to help them break down what's overwhelming them using their Axinote tasks and calendar — but only if they seem ready.
@@ -9957,6 +10031,7 @@ Your personality:
 - You meet the student exactly where they are. If they are confused, you slow down and try a different angle.
 - You celebrate small wins and progress, not just perfect scores.
 - You are conversational and warm — not robotic or clinical. Use contractions, be natural.
+- Lead with a direct answer in plain language, then add one short practical next step when helpful.
 - When someone seems stressed or overwhelmed, acknowledge how they feel before diving into solutions.
 ${bpPersonality}
 
@@ -10051,24 +10126,42 @@ async function flowaiSend(presetMsg) {
       limits: {
         retrievalTopK: AI._therapistMode ? 4 : 6,
         maxContextChars: AI._therapistMode ? 2200 : 3200,
-        outputTokens: AI._therapistMode ? 180 : 220,
+        outputTokens: AI._therapistMode ? 220 : 320,
       },
     });
+    let finalAnswer = String(result?.answer || '').trim();
+    let finalRefs = Array.isArray(result?.sourceRefs) ? result.sourceRefs : [];
+    let finalActions = Array.isArray(result?.suggestedActions) ? result.suggestedActions : [];
+    let finalConfidence = result?.confidenceHint || 'medium';
+
+    if (!AI._therapistMode && flowaiIsWeakLocalResult(result)) {
+      try {
+        const refined = await flowaiRefineLocalAnswer(msg, history);
+        if (refined?.answer) {
+          finalAnswer = String(refined.answer).trim();
+          finalRefs = Array.isArray(refined.sourceRefs) ? refined.sourceRefs : finalRefs;
+          finalActions = Array.isArray(refined.suggestedActions) ? refined.suggestedActions : finalActions;
+          finalConfidence = refined.confidenceHint || 'medium';
+        }
+      } catch (_) {
+        // Keep initial local result when refinement fails.
+      }
+    }
     document.getElementById('flowai-typing')?.remove();
 
     AI.chatHistory.push({
       role: 'assistant',
-      content: result.answer,
-      sourceRefs: result.sourceRefs || [],
-      suggestedActions: result.suggestedActions || [],
-      confidenceHint: result.confidenceHint || 'medium',
+      content: finalAnswer || 'I hit a temporary issue answering that. Please try rephrasing your question.',
+      sourceRefs: finalRefs,
+      suggestedActions: finalActions,
+      confidenceHint: finalConfidence,
       confirmations: [],
     });
     _flowaiSaveCurrentSession();
 
   } catch (e) {
     document.getElementById('flowai-typing')?.remove();
-    AI.chatHistory.push({ role: 'assistant', content: `I ran into a small issue — ${e.message}. Could you try again?` });
+    AI.chatHistory.push({ role: 'assistant', content: `I ran into a small issue — ${flowaiFriendlyError(e)} Could you try again?` });
   }
   renderAIFlowAITab(document.getElementById('ai-panel-body'));
 }

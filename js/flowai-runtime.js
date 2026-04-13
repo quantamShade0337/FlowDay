@@ -3,6 +3,7 @@
   const DB_VERSION = 1;
   const STORES = ['meta', 'chunks', 'memory', 'training', 'evals'];
   const MODEL_CONFIG = {
+    transformerGeneratorPro: 'Xenova/flan-t5-large',
     transformerGenerator: 'Xenova/flan-t5-base',
     transformerGeneratorLite: 'Xenova/flan-t5-small',
     embedder: 'Xenova/all-MiniLM-L6-v2',
@@ -14,8 +15,23 @@
     lexicalPrefilter: 18,
     maxChunkChars: 520,
     maxContextChars: 3200,
-    outputTokens: 220,
+    outputTokens: 320,
   };
+  const SUPPORTED_SUGGESTED_ACTIONS = new Set([
+    'create_task',
+    'complete_task',
+    'create_flashcards',
+    'create_study_plan',
+    'add_project_note',
+    'schedule_review_block',
+    'append_to_note',
+    'replace_current_note',
+    'create_note',
+    'create_mock_exam',
+    'start_timer',
+    'stop_timer',
+    'reset_timer',
+  ]);
 
   let dbPromise = null;
   let transformersModule = null;
@@ -111,7 +127,31 @@
   }
 
   function selectTransformerGeneratorModel(profile) {
+    if (profile.memory >= 20) return MODEL_CONFIG.transformerGeneratorPro;
     return profile.memory >= 8 ? MODEL_CONFIG.transformerGenerator : MODEL_CONFIG.transformerGeneratorLite;
+  }
+
+  function modelFallbackOrder(profile) {
+    const preferred = selectTransformerGeneratorModel(profile);
+    const order = [preferred, MODEL_CONFIG.transformerGenerator, MODEL_CONFIG.transformerGeneratorLite];
+    return Array.from(new Set(order));
+  }
+
+  function expandLimitsForDepth(limits, latestMessage) {
+    const profile = getDeviceProfile();
+    const text = String(latestMessage || '');
+    const deepPrompt = text.length > 220 || /\b(explain|step by step|deep|in depth|compare|analyse|analyze|derive|strategy)\b/i.test(text);
+    const next = { ...limits };
+    if (profile.memory >= 12) {
+      next.retrievalTopK = Math.min(10, Math.max(next.retrievalTopK || 6, deepPrompt ? 9 : 8));
+      next.maxContextChars = Math.min(4800, Math.max(next.maxContextChars || 3200, deepPrompt ? 4600 : 4000));
+      next.outputTokens = Math.min(420, Math.max(next.outputTokens || 320, deepPrompt ? 400 : 340));
+    } else if (profile.memory >= 8) {
+      next.retrievalTopK = Math.min(8, Math.max(next.retrievalTopK || 6, deepPrompt ? 8 : 7));
+      next.maxContextChars = Math.min(3900, Math.max(next.maxContextChars || 3200, deepPrompt ? 3800 : 3400));
+      next.outputTokens = Math.min(340, Math.max(next.outputTokens || 320, deepPrompt ? 330 : 320));
+    }
+    return next;
   }
 
   function chooseWebLLMModel(modelList) {
@@ -742,6 +782,31 @@
       });
     }
 
+    if (/\b(start|begin|launch|resume)\b.*\b(timer|pomodoro|focus timer)\b/.test(lower)) {
+      actions.push({
+        type: 'start_timer',
+        label: 'Start focus timer',
+        payload: {},
+        rationale: 'Start the focus timer in your workspace.',
+      });
+    }
+    if (/\b(stop|pause)\b.*\b(timer|pomodoro|focus timer)\b/.test(lower)) {
+      actions.push({
+        type: 'stop_timer',
+        label: 'Pause focus timer',
+        payload: {},
+        rationale: 'Pause the running focus timer.',
+      });
+    }
+    if (/\b(reset)\b.*\b(timer|pomodoro|focus timer)\b/.test(lower)) {
+      actions.push({
+        type: 'reset_timer',
+        label: 'Reset focus timer',
+        payload: {},
+        rationale: 'Reset the focus timer back to its starting value.',
+      });
+    }
+
     return actions;
   }
 
@@ -835,10 +900,10 @@
 
     if (packet.therapistMode) {
       answer = [
-        'That sounds heavy, and I can see why it feels hard right now.',
-        'From your workspace, the main pressure points look like these:',
+        'That sounds really heavy, and it makes sense this feels hard right now.',
+        'From your workspace, here are the pressure points I can see:',
         snippets || '- I do not have enough workspace context yet, so tell me what feels most urgent.',
-        'Let us take one gentle next step. Pick the smallest thing you can do in the next 10 minutes, and I can help break it down further.',
+        'Let’s take one gentle next step. Pick the smallest thing you can do in the next 10 minutes, and I’ll help you break it down.',
       ].join('\n\n');
     } else if (packet.intent === 'summarise') {
       answer = [
@@ -882,7 +947,7 @@
         : 'I do not have much session memory saved yet, but I can remember this conversation from here forward.';
     } else {
       answer = [
-        'Here is what I can answer from your workspace right now:',
+        'Here’s what I can answer right now from your workspace:',
         snippets || '- I could not find a strong match, so try mentioning the note, task, or topic name directly.',
         sessionSummary ? sessionSummary.trim() : '',
       ].filter(Boolean).join('\n\n');
@@ -907,6 +972,24 @@
     }
   }
 
+  function cleanNeuralText(text) {
+    const raw = String(text || '').trim();
+    if (!raw) return '';
+    return raw
+      .replace(/^```(?:json|text)?/i, '')
+      .replace(/```$/i, '')
+      .replace(/\s+/g, ' ')
+      .trim();
+  }
+
+  function normalizeAnswerText(value) {
+    const raw = clampText(value || '', 2200);
+    if (!raw) return '';
+    const lower = raw.trim().toLowerCase();
+    if (['null', 'undefined', 'nan', '[object object]', '{}', '[]'].includes(lower)) return '';
+    return raw;
+  }
+
   async function buildNeuralAnswer(packet) {
     if (!generator && !webllmEngine) return buildReducedAnswer(packet);
     const contextText = packet.retrievedChunks.map((chunk, index) => (
@@ -919,8 +1002,8 @@
     ].filter(Boolean).join('\n');
 
     const systemTone = packet.therapistMode
-      ? 'You are a warm, supportive study companion. Validate feelings first and avoid harsh language.'
-      : 'You are FlowAI, a grounded study copilot. Be concise, specific, and only use the provided context.';
+      ? 'You are a warm, supportive study companion. Sound human, gentle, and validating. Avoid harsh or clinical language.'
+      : 'You are FlowAI, a grounded study copilot. Sound natural and human, be concise and specific, and use provided context first.';
 
     const prompt = [
       systemTone,
@@ -928,7 +1011,7 @@
       'answer must be a plain string.',
       'sourceRefs must be an array of objects with sourceType, sourceId, title.',
       'suggestedActions must be an array of objects with type, label, payload, rationale.',
-      'Allowed action types: create_task, create_flashcards, create_study_plan, add_project_note, schedule_review_block, append_to_note, replace_current_note, create_note, create_mock_exam.',
+      'Allowed action types: create_task, complete_task, create_flashcards, create_study_plan, add_project_note, schedule_review_block, append_to_note, replace_current_note, create_note, create_mock_exam, start_timer, stop_timer, reset_timer.',
       'If you suggest create_mock_exam, include payload.title, payload.subject, payload.duration, and payload.questions.',
       'If you suggest note actions, include payload.content as clean markdown-ready text.',
       'confidenceHint must be one of low, medium, high.',
@@ -960,7 +1043,19 @@
       text = output?.[0]?.generated_text || output?.[0]?.summary_text || '';
     }
     const parsed = parseJsonResult(text);
-    if (!parsed) return buildReducedAnswer(packet);
+    if (!parsed) {
+      const rescued = normalizeAnswerText(cleanNeuralText(text));
+      if (rescued) {
+        const refs = sourceRefsFromChunks(packet.retrievedChunks);
+        return {
+          answer: rescued,
+          sourceRefs: refs,
+          suggestedActions: inferSuggestedActions(packet, rescued, []),
+          confidenceHint: refs.length ? 'medium' : 'low',
+        };
+      }
+      return buildReducedAnswer(packet);
+    }
     return sanitizeResult(parsed, packet);
   }
 
@@ -974,14 +1069,19 @@
           title: ref.title || refs.find(item => item.sourceId === ref.sourceId && item.sourceType === ref.sourceType)?.title || 'Source',
         }))
       : refs;
-    const answer = clampText(result.answer || result.response || '', 2200);
+    const answer = normalizeAnswerText(result.answer || result.response || '');
+    const safeModelActions = Array.isArray(result.suggestedActions)
+      ? result.suggestedActions
+          .filter(action => action && SUPPORTED_SUGGESTED_ACTIONS.has(action.type))
+          .slice(0, 4)
+      : [];
     return {
       answer: answer || buildReducedAnswer(packet).answer,
       sourceRefs: safeRefs.length ? safeRefs : refs,
       suggestedActions: inferSuggestedActions(
         packet,
         answer,
-        Array.isArray(result.suggestedActions) ? result.suggestedActions.slice(0, 4) : []
+        safeModelActions
       ),
       confidenceHint: ['low', 'medium', 'high'].includes(result.confidenceHint) ? result.confidenceHint : (refs.length ? 'medium' : 'low'),
     };
@@ -1067,8 +1167,21 @@
           loadedAt: nowIso(),
         };
 
-        const transformerModel = selectTransformerGeneratorModel(profile);
-        generator = await transformersModule.pipeline('text2text-generation', transformerModel);
+        const modelCandidates = modelFallbackOrder(profile);
+        let transformerModel = modelCandidates[modelCandidates.length - 1];
+        let modelLoaded = false;
+        let lastModelError = null;
+        for (const candidate of modelCandidates) {
+          try {
+            generator = await transformersModule.pipeline('text2text-generation', candidate);
+            transformerModel = candidate;
+            modelLoaded = true;
+            break;
+          } catch (candidateError) {
+            lastModelError = candidateError;
+          }
+        }
+        if (!modelLoaded) throw (lastModelError || new Error('No local transformer model could be loaded'));
         webllmEngine = null;
         updateHealth({
           state: 'ready',
@@ -1118,9 +1231,11 @@
     await ensureRuntimeReady();
     if (health.state === 'idle') await loadModel();
     const memory = await getMemoryState();
-    const limits = { ...DEFAULT_LIMITS, ...(input?.limits || {}) };
+    const rawLimits = { ...DEFAULT_LIMITS, ...(input?.limits || {}) };
+    const latestMessage = input?.messages?.slice(-1)?.[0]?.content || '';
+    const limits = expandLimitsForDepth(rawLimits, latestMessage);
     const appState = normalizeState(input?.context?.appState);
-    const retrievedChunks = await retrieveRelevantChunks(appState, input?.messages?.slice(-1)[0]?.content || '', limits);
+    const retrievedChunks = await retrieveRelevantChunks(appState, latestMessage, limits);
     const packet = buildPromptPacket({
       ...input,
       context: { ...(input?.context || {}), appState },
