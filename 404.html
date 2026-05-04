@@ -1,0 +1,78 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Page Not Found — Axinote</title>
+  <style>
+    :root {
+      --bg: #0b0d12;
+      --card: #121723;
+      --text: #e7ecf3;
+      --muted: #97a3b6;
+      --border: #1f2838;
+      --accent: #5b8cff;
+    }
+    @media (prefers-color-scheme: light) {
+      :root {
+        --bg: #f7f9fc;
+        --card: #ffffff;
+        --text: #111827;
+        --muted: #5b6473;
+        --border: #e5e9f2;
+        --accent: #2f6cff;
+      }
+    }
+    * { box-sizing: border-box; }
+    html, body { margin: 0; min-height: 100%; }
+    body {
+      font-family: Inter, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+      background: var(--bg);
+      color: var(--text);
+      display: grid;
+      place-items: center;
+      padding: 24px;
+    }
+    .wrap {
+      width: 100%;
+      max-width: 440px;
+      border: 1px solid var(--border);
+      background: var(--card);
+      border-radius: 12px;
+      padding: 28px 24px;
+    }
+    h1 {
+      margin: 0;
+      font-size: 18px;
+      font-weight: 600;
+      letter-spacing: 0.01em;
+    }
+    p {
+      margin: 10px 0 0;
+      color: var(--muted);
+      font-size: 14px;
+      line-height: 1.5;
+    }
+    .actions { margin-top: 18px; }
+    a {
+      display: inline-block;
+      text-decoration: none;
+      font-size: 14px;
+      font-weight: 600;
+      color: #fff;
+      background: var(--accent);
+      padding: 10px 14px;
+      border-radius: 8px;
+    }
+  </style>
+</head>
+<body>
+  <main class="wrap" role="main" aria-labelledby="title">
+    <h1 id="title">Page not found</h1>
+    <p>This page does not exist or has moved.</p>
+    <div class="actions">
+      <a href="/">Go to landing page</a>
+    </div>
+  </main>
+</body>
+</html>
