@@ -2698,11 +2698,12 @@ function finishNoteInkStroke(saveStroke = true) {
 
 function handleNoteInkPointerDown(evt) {
   if (!NoteInk.enabled || !S.page) return;
-  if (evt.pointerType === 'touch') {
-    if (isPalmTouch(evt)) evt.preventDefault();
+  if (evt.pointerType === 'touch' && isPalmTouch(evt)) {
+    evt.preventDefault();
     return;
   }
-  if (evt.pointerType !== 'pen' && evt.pointerType !== 'mouse') return;
+  const isStylusTouch = evt.pointerType === 'touch' && (evt.pressure > 0.15 || evt.tiltX !== 0 || evt.tiltY !== 0);
+  if (evt.pointerType !== 'pen' && evt.pointerType !== 'mouse' && !isStylusTouch) return;
   evt.preventDefault();
   const point = getNoteInkPoint(evt);
   if (!point) return;
@@ -2737,7 +2738,7 @@ function handleNoteInkPointerDown(evt) {
 
 function handleNoteInkPointerMove(evt) {
   if (!NoteInk.enabled) return;
-  if (evt.pointerType === 'touch') return;
+  if (evt.pointerType === 'touch' && isPalmTouch(evt)) return;
   if (!NoteInk.drawing || evt.pointerId !== NoteInk.pointerId) return;
   if (NoteInk.tool === 'eraser') {
     const point = getNoteInkPoint(evt);
@@ -2759,7 +2760,7 @@ function handleNoteInkPointerMove(evt) {
 
 function handleNoteInkPointerUp(evt) {
   if (!NoteInk.enabled) return;
-  if (evt.pointerType === 'touch') return;
+  if (evt.pointerType === 'touch' && isPalmTouch(evt)) return;
   if (!NoteInk.drawing || evt.pointerId !== NoteInk.pointerId) return;
   evt.preventDefault();
   if (NoteInk.tool === 'eraser') {
@@ -2774,7 +2775,7 @@ function handleNoteInkPointerUp(evt) {
 
 function handleNoteInkPointerCancel(evt) {
   if (!NoteInk.enabled) return;
-  if (evt.pointerType === 'touch') return;
+  if (evt.pointerType === 'touch' && isPalmTouch(evt)) return;
   if (evt.pointerId !== NoteInk.pointerId) return;
   if (NoteInk.tool === 'eraser') {
     NoteInk.pointerId = null;
@@ -8758,6 +8759,11 @@ function renderFlowAISettingsCard() {
         <button class="btn btn-action btn-sm" onclick="flowaiLoadLocalModel()">${health.state === 'loading' ? 'Loading...' : (health.modelLoaded ? 'Reload Local Model' : 'Load Local Model')}</button>
         <button class="btn btn-ghost btn-sm" onclick="flowaiResetMemory()">Reset FlowAI Memory</button>
       </div>
+      <div style="padding-top:2px;border-top:1px solid var(--border);display:grid;gap:8px">
+        <div style="font-size:12px;font-weight:700;color:var(--text);margin-top:8px">ChatGPT Cloud API</div>
+        <div style="font-size:11px;color:var(--text-faint);line-height:1.5">FlowAI now uses your configured cloud worker endpoint. Set OPENAI_API_KEY on the worker server-side (not in browser).</div>
+        <div style="font-size:11px;color:var(--text-faint)">Use <code>wrangler secret put OPENAI_API_KEY</code> and deploy your worker.</div>
+      </div>
       <div style="display:flex;align-items:flex-start;justify-content:space-between;gap:12px;padding-top:2px;border-top:1px solid var(--border)">
         <div>
           <div style="font-size:12px;font-weight:700;color:var(--text);margin-top:12px">Training Opt-In</div>
@@ -9051,6 +9057,59 @@ const CREDIT_TIERS = {
 const FREE_TIER_CREDITS = 5000;
 const CREDIT_WARN_75 = 0.75, CREDIT_WARN_90 = 0.90, CREDIT_WARN_100 = 1.0;
 
+
+const FLOWAI_OPENAI_KEY_STORAGE = 'flowai_openai_api_key';
+const FLOWAI_OPENAI_MODEL_STORAGE = 'flowai_openai_model';
+const FLOWAI_DEFAULT_OPENAI_MODEL = 'gpt-4o-mini';
+
+function getFlowAIApiProvider() {
+  return (S.userProfile?.aiProvider || 'openai').toLowerCase();
+}
+
+function getOpenAIKey() {
+  return String(localStorage.getItem(FLOWAI_OPENAI_KEY_STORAGE) || '').trim();
+}
+
+function getOpenAIModel() {
+  return String(localStorage.getItem(FLOWAI_OPENAI_MODEL_STORAGE) || FLOWAI_DEFAULT_OPENAI_MODEL).trim();
+}
+
+function saveOpenAIConfig() {
+  const keyEl = document.getElementById('openai-key-inp');
+  const modelEl = document.getElementById('openai-model-inp');
+  const key = String(keyEl?.value || '').trim();
+  const model = String(modelEl?.value || FLOWAI_DEFAULT_OPENAI_MODEL).trim();
+  if (key) localStorage.setItem(FLOWAI_OPENAI_KEY_STORAGE, key);
+  else localStorage.removeItem(FLOWAI_OPENAI_KEY_STORAGE);
+  localStorage.setItem(FLOWAI_OPENAI_MODEL_STORAGE, model || FLOWAI_DEFAULT_OPENAI_MODEL);
+  toast(key ? 'OpenAI API configured.' : 'OpenAI API key removed. Falling back to local runtime.');
+  rerenderFlowAISettingsView();
+}
+
+async function callOpenAIChat(messages, maxTokens = 1024) {
+  const apiKey = getOpenAIKey();
+  if (!apiKey) throw new Error('OpenAI API key not set');
+  const model = getOpenAIModel();
+  const res = await fetch('https://api.openai.com/v1/chat/completions', {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+      'Authorization': `Bearer ${apiKey}`,
+    },
+    body: JSON.stringify({
+      model,
+      messages,
+      max_tokens: effectiveMaxTokens(maxTokens),
+      temperature: 0.4,
+    }),
+  });
+  const data = await res.json().catch(() => ({}));
+  if (!res.ok) throw new Error(data?.error?.message || `OpenAI request failed (${res.status})`);
+  const text = data?.choices?.[0]?.message?.content || '';
+  if (!text) throw new Error('OpenAI returned an empty response');
+  return text;
+}
+
 const PLAN_ORDER = { free: 0, lite: 1, pro: 2, advanced: 3, elite: 4 };
 const PLAN_TOKEN_LIMITS = { free: 640, lite: 1400, pro: 2600, advanced: 4096, elite: 6000 };
 const AI_FEATURE_MIN_PLAN = {
@@ -9245,18 +9304,9 @@ function checkCreditsAvailable(estimatedCost) {
 // ═══════════════════════════════════════════════════════════════
 
 async function callAI(system, userMessage, maxTokens = 1024) {
-  const runtime = await flowaiEnsureLocalRuntime(false);
-  const result = await runtime.generate({
-    intent: classifyFlowAIIntent([userMessage]),
-    messages: [
-      { role: 'system', content: system || '' },
-      { role: 'user', content: userMessage || '' }
-    ],
-    context: { appState: getFlowAIRuntimeAppState() },
-    memory: {},
-    limits: { outputTokens: effectiveMaxTokens(maxTokens) }
-  });
-  return result?.answer || '';
+  return _cfCall(system || '', [
+    { role: 'user', content: userMessage || '' }
+  ], effectiveMaxTokens(maxTokens));
 }
 
 // ─── JSON-returning AI call ───────────────────────────────────
@@ -9274,18 +9324,11 @@ async function callAIJson(system, userMessage, maxTokens = 2048) {
 // ─── Multi-turn conversation call ────────────────────────────
 // history = [{role:'user'|'assistant', content:'...'}]
 async function callAIConvo(system, history, maxTokens = 512) {
-  const runtime = await flowaiEnsureLocalRuntime(false);
-  const result = await runtime.generate({
-    intent: classifyFlowAIIntent((history || []).map(item => item.content || '')),
-    messages: [
-      { role: 'system', content: system || '' },
-      ...((history || []).map(item => ({ role: item.role === 'assistant' ? 'assistant' : 'user', content: item.content || '' })))
-    ],
-    context: { appState: getFlowAIRuntimeAppState() },
-    memory: {},
-    limits: { outputTokens: effectiveMaxTokens(maxTokens) }
-  });
-  return result?.answer || '';
+  const convo = (history || []).map(item => ({
+    role: item.role === 'assistant' ? 'assistant' : 'user',
+    content: item.content || ''
+  }));
+  return _cfCall(system || '', convo, effectiveMaxTokens(maxTokens));
 }
 
 // ─── Page content helper ─────────────────────────────────────
@@ -10217,56 +10260,16 @@ async function flowaiSend(presetMsg) {
   }
 
   try {
-    await flowaiEnsureLocalRuntime(false);
-    const localIntent = AI._therapistMode
-      ? 'support'
-      : /socratic/i.test(AI._flowaiChatSystem || '')
-        ? 'tutor'
-        : /debate/i.test(AI._flowaiChatSystem || '')
-          ? 'qa'
-          : '';
-    const history = AI.chatHistory.map(item => ({
-      role: item.role,
-      content: item.role === 'assistant'
-        ? String(item.content || '').replace(/<[^>]+>/g, ' ').replace(/\s+/g, ' ').trim()
-        : item.content,
-    }));
-    const result = await runFlowAILocalRequest({
-      intent: localIntent,
-      history,
-      message: msg,
-      limits: {
-        retrievalTopK: AI._therapistMode ? 4 : 6,
-        maxContextChars: AI._therapistMode ? 2200 : 3200,
-        outputTokens: AI._therapistMode ? 220 : 320,
-      },
-    });
-    let finalAnswer = String(result?.answer || '').trim();
-    let finalRefs = Array.isArray(result?.sourceRefs) ? result.sourceRefs : [];
-    let finalActions = Array.isArray(result?.suggestedActions) ? result.suggestedActions : [];
-    let finalConfidence = result?.confidenceHint || 'medium';
-
-    if (!AI._therapistMode && flowaiIsWeakLocalResult(result)) {
-      try {
-        const refined = await flowaiRefineLocalAnswer(msg, history);
-        if (refined?.answer) {
-          finalAnswer = String(refined.answer).trim();
-          finalRefs = Array.isArray(refined.sourceRefs) ? refined.sourceRefs : finalRefs;
-          finalActions = Array.isArray(refined.suggestedActions) ? refined.suggestedActions : finalActions;
-          finalConfidence = refined.confidenceHint || 'medium';
-        }
-      } catch (_) {
-        // Keep initial local result when refinement fails.
-      }
-    }
+    const sys = AI._flowaiChatSystem || getFlowAISystem();
+    const answer = await callAIConvo(sys, AI.chatHistory, AI._therapistMode ? 420 : 720);
     document.getElementById('flowai-typing')?.remove();
 
     AI.chatHistory.push({
       role: 'assistant',
-      content: finalAnswer || 'I hit a temporary issue answering that. Please try rephrasing your question.',
-      sourceRefs: finalRefs,
-      suggestedActions: finalActions,
-      confidenceHint: finalConfidence,
+      content: String(answer || '').trim() || 'I hit a temporary issue answering that. Please try rephrasing your question.',
+      sourceRefs: [],
+      suggestedActions: [],
+      confidenceHint: 'medium',
       confirmations: [],
     });
     _flowaiSaveCurrentSession();
