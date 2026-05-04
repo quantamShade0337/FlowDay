@@ -1,3 +1,8 @@
+const RATE_BUCKET = new Map();
+const RATE_WINDOW_MS = 60_000;
+const RATE_MAX_REQUESTS = 40;
+const MAX_BODY_BYTES = 120_000;
+
 function parseAllowedOrigins(value = '') {
   return String(value)
     .split(',')
@@ -25,9 +30,41 @@ function jsonResponse(body, status, origin, env) {
     status,
     headers: {
       'Content-Type': 'application/json',
+      'X-Content-Type-Options': 'nosniff',
+      'X-Frame-Options': 'DENY',
+      'Referrer-Policy': 'no-referrer',
+      'Cache-Control': 'no-store',
       ...corsHeaders(origin, env),
     },
   });
+}
+
+function getClientKey(request) {
+  return request.headers.get('CF-Connecting-IP')
+    || request.headers.get('x-forwarded-for')?.split(',')[0]?.trim()
+    || 'unknown';
+}
+
+function checkRateLimit(clientKey) {
+  const now = Date.now();
+  const entry = RATE_BUCKET.get(clientKey) || { count: 0, resetAt: now + RATE_WINDOW_MS };
+  if (now > entry.resetAt) {
+    entry.count = 0;
+    entry.resetAt = now + RATE_WINDOW_MS;
+  }
+  entry.count += 1;
+  RATE_BUCKET.set(clientKey, entry);
+  if (RATE_BUCKET.size > 15000) {
+    for (const [k, v] of RATE_BUCKET.entries()) {
+      if (v.resetAt < now) RATE_BUCKET.delete(k);
+    }
+  }
+  const retryAfter = Math.max(1, Math.ceil((entry.resetAt - now) / 1000));
+  return {
+    limited: entry.count > RATE_MAX_REQUESTS,
+    remaining: Math.max(0, RATE_MAX_REQUESTS - entry.count),
+    retryAfter,
+  };
 }
 
 function isOriginAllowed(origin, env) {
@@ -60,8 +97,28 @@ export default {
       return jsonResponse({ error: 'Not found' }, 404, origin, env);
     }
 
+    const contentLength = Number(request.headers.get('content-length') || '0');
+    if (contentLength > MAX_BODY_BYTES) {
+      return jsonResponse({ error: 'Request too large' }, 413, origin, env);
+    }
+
     if (!isOriginAllowed(origin, env)) {
       return jsonResponse({ error: 'Origin not allowed' }, 403, origin, env);
+    }
+
+    const rate = checkRateLimit(getClientKey(request));
+    if (rate.limited) {
+      return new Response(JSON.stringify({ error: 'Rate limit exceeded' }), {
+        status: 429,
+        headers: {
+          'Content-Type': 'application/json',
+          'Retry-After': String(rate.retryAfter),
+          'X-RateLimit-Limit': String(RATE_MAX_REQUESTS),
+          'X-RateLimit-Remaining': String(rate.remaining),
+          'X-RateLimit-Reset': String(rate.retryAfter),
+          ...corsHeaders(origin, env),
+        },
+      });
     }
 
     if (!env.OPENAI_API_KEY) {
@@ -80,11 +137,13 @@ export default {
     const maxTokens = Math.max(64, Math.min(Number(payload.max_tokens) || 1024, 6000));
     const model = env.OPENAI_MODEL || 'gpt-4o-mini';
 
+    const allowedRoles = new Set(['system', 'user', 'assistant']);
     const messages = [
       ...(system ? [{ role: 'system', content: system }] : []),
       ...inputMessages
         .filter(msg => msg && typeof msg.role === 'string' && typeof msg.content === 'string')
-        .map(msg => ({ role: msg.role, content: msg.content })),
+        .filter(msg => allowedRoles.has(msg.role))
+        .map(msg => ({ role: msg.role, content: msg.content.slice(0, 12000) })),
     ];
 
     if (messages.length === 0) {
@@ -133,6 +192,10 @@ export default {
       response: text,
       choices: data?.choices || [],
       usage: data?.usage || null,
+      rateLimit: {
+        limit: RATE_MAX_REQUESTS,
+        remaining: rate.remaining,
+      },
     }, 200, origin, env);
   },
 };

@@ -8779,15 +8779,33 @@ function renderFlowAISettingsCard() {
 }
 
 async function runFlowAILocalRequest(options) {
-  const runtime = await flowaiEnsureLocalRuntime(false);
-  const request = runtime.buildRequestFromWorkspace({
-    intent: options.intent,
-    message: options.message,
-    history: options.history,
-    appState: getFlowAIRuntimeAppState(),
-    limits: options.limits || {},
-  });
-  return runtime.generate(request);
+  const appState = getFlowAIRuntimeAppState();
+  const history = Array.isArray(options?.history) ? options.history : [];
+  const system = `You are FlowAI. Return STRICT JSON only with this shape: {"answer":"string","sourceRefs":[{"sourceType":"string","title":"string"}],"suggestedActions":[{"type":"string","label":"string","rationale":"string","payload":{}}],"confidenceHint":"high|medium|low"}. Do not include markdown fences.`;
+  const prompt = [
+    `INTENT: ${options?.intent || 'qa'}`,
+    `MESSAGE: ${options?.message || ''}`,
+    `LIMITS: ${JSON.stringify(options?.limits || {})}`,
+    `WORKSPACE_CONTEXT:\n${getFlowAIContextWithIds()}`,
+    `APP_STATE_JSON:\n${JSON.stringify(appState)}`,
+    `CHAT_HISTORY_JSON:\n${JSON.stringify(history)}`,
+  ].join('\n\n');
+
+  try {
+    const raw = await _cfCall(system, [{ role: 'user', content: prompt }], effectiveMaxTokens(options?.limits?.outputTokens || 420));
+    const clean = String(raw || '').replace(/^```(?:json)?\s*/i, '').replace(/\s*```\s*$/i, '').trim();
+    const match = clean.match(/(\{[\s\S]*\})/);
+    const parsed = match ? JSON.parse(match[1]) : JSON.parse(clean);
+    return {
+      answer: String(parsed?.answer || '').trim(),
+      sourceRefs: Array.isArray(parsed?.sourceRefs) ? parsed.sourceRefs : [],
+      suggestedActions: Array.isArray(parsed?.suggestedActions) ? parsed.suggestedActions : [],
+      confidenceHint: ['high', 'medium', 'low'].includes(String(parsed?.confidenceHint || '').toLowerCase()) ? String(parsed.confidenceHint).toLowerCase() : 'medium',
+    };
+  } catch (_) {
+    const fallback = await callAI(getFlowAISystem(), options?.message || '', options?.limits?.outputTokens || 420);
+    return { answer: String(fallback || '').trim(), sourceRefs: [], suggestedActions: [], confidenceHint: 'medium' };
+  }
 }
 
 function flowaiIsWeakLocalResult(result) {
